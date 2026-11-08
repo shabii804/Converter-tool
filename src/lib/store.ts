@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import { TOOLS, toolById } from "./tools";
+import { TOOLS, toolById, type ToolCategory } from "./tools";
+import type { Lang } from "./i18n";
 
 export interface StoreFile {
   id: string;
@@ -37,7 +38,9 @@ export type View = "home" | "tool" | "processing" | "done";
 export interface Suggestion {
   primary: string;
   alternatives: string[];
-  reason: string;
+  /** i18n key — rendered through the copy dictionary */
+  reasonKey: "combine" | "convert" | "one";
+  count: number;
 }
 
 interface AppState {
@@ -50,6 +53,15 @@ interface AppState {
   stats: RunStats | null;
   errorMsg: string | null;
   paletteOpen: boolean;
+
+  /** UI language (persisted locally) */
+  lang: Lang;
+  /** tool-grid filter: category, favorites, or all */
+  toolFilter: ToolCategory | "all" | "favorites";
+  /** favorite tool ids (persisted locally) */
+  favorites: string[];
+  /** recently used tool ids, most recent first (persisted locally) */
+  recent: string[];
 
   setView: (v: View) => void;
   openTool: (id: string) => void;
@@ -64,6 +76,13 @@ interface AppState {
   setStats: (s: RunStats) => void;
   setError: (e: string | null) => void;
   setPalette: (open: boolean) => void;
+  setLang: (l: Lang) => void;
+  setToolFilter: (f: ToolCategory | "all" | "favorites") => void;
+  toggleFavorite: (id: string) => void;
+  pushRecent: (id: string) => void;
+  clearRecent: () => void;
+  /** read persisted UI prefs from localStorage (call once after mount) */
+  hydrateLocal: () => void;
   resetAll: () => void;
   /** keep tool, clear results/files for another run */
   nextRun: () => void;
@@ -71,6 +90,32 @@ interface AppState {
 
 const uid = () =>
   `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+
+/* ---- local-only persistence (never transmitted; rule 5) ---- */
+const LS = {
+  lang: "swiftpdf.lang",
+  favs: "swiftpdf.favs",
+  recent: "swiftpdf.recent",
+} as const;
+
+function readLS<T>(key: string, fallback: T): T {
+  if (typeof window === "undefined") return fallback;
+  try {
+    const raw = window.localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeLS(key: string, value: unknown) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    /* storage unavailable — prefs stay in-memory */
+  }
+}
 
 function detectToolForFiles(files: File[]): Suggestion | null {
   if (files.length === 0) return null;
@@ -81,21 +126,24 @@ function detectToolForFiles(files: File[]): Suggestion | null {
     return {
       primary: "merge",
       alternatives: ["compress", "split", "rotate"],
-      reason: `${pdfs.length} PDFs ready to combine`,
+      reasonKey: "combine",
+      count: pdfs.length,
     };
   }
   if (imgs.length >= 1 && pdfs.length === 0) {
     return {
       primary: "jpg-to-pdf",
       alternatives: [],
-      reason: `${imgs.length} image${imgs.length > 1 ? "s" : ""} ready to convert`,
+      reasonKey: "convert",
+      count: imgs.length,
     };
   }
   if (pdfs.length === 1) {
     return {
       primary: "compress",
       alternatives: ["split", "organize", "pdf-to-jpg", "protect"],
-      reason: "1 PDF — what do you want to do with it?",
+      reasonKey: "one",
+      count: 1,
     };
   }
   return null;
@@ -112,11 +160,17 @@ export const useStore = create<AppState>((set, get) => ({
   errorMsg: null,
   paletteOpen: false,
 
+  lang: "en",
+  toolFilter: "all",
+  favorites: [],
+  recent: [],
+
   setView: (v) => set({ view: v }),
 
   openTool: (id) => {
     const tool = toolById(id);
     if (!tool) return;
+    get().pushRecent(id);
     // keep files that already match this tool (drop-first flow)
     const kept = get().files.filter((f) => matchesTool(f.file, tool.accept, tool.input));
     const sameTool = get().toolId === id;
@@ -207,6 +261,42 @@ export const useStore = create<AppState>((set, get) => ({
   setStats: (s) => set({ stats: s }),
   setError: (e) => set({ errorMsg: e }),
   setPalette: (open) => set({ paletteOpen: open }),
+
+  setLang: (l) => {
+    writeLS(LS.lang, l);
+    set({ lang: l });
+  },
+
+  setToolFilter: (f) => set({ toolFilter: f }),
+
+  toggleFavorite: (id) =>
+    set((st) => {
+      const favorites = st.favorites.includes(id)
+        ? st.favorites.filter((x) => x !== id)
+        : [...st.favorites, id];
+      writeLS(LS.favs, favorites);
+      return { favorites };
+    }),
+
+  pushRecent: (id) =>
+    set((st) => {
+      if (!toolById(id)) return {};
+      const recent = [id, ...st.recent.filter((x) => x !== id)].slice(0, 6);
+      writeLS(LS.recent, recent);
+      return { recent };
+    }),
+
+  clearRecent: () => {
+    writeLS(LS.recent, []);
+    set({ recent: [] });
+  },
+
+  hydrateLocal: () =>
+    set({
+      lang: readLS<Lang>(LS.lang, "en"),
+      favorites: readLS<string[]>(LS.favs, []),
+      recent: readLS<string[]>(LS.recent, []),
+    }),
 
   resetAll: () =>
     set({
