@@ -8,7 +8,7 @@
 import sharp from "sharp";
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 /** ONLY=brand → PWA icons + og.png only (skip the blog flow screenshots). */
@@ -36,6 +36,21 @@ async function makeIcon(size, file, { maskable = false } = {}) {
     .png()
     .toFile(path.join(process.cwd(), "public", file));
   console.log("icon:", file);
+}
+
+/** /favicon.ico — real ICO container (PNG-compressed entry, Vista+ spec) from the logo */
+async function makeFavicon() {
+  const src = await readFile(LOGO, "utf8");
+  const png = await sharp(Buffer.from(src), { density: 72 }).resize(32, 32).png().toBuffer();
+  const header = Buffer.alloc(6); // ICONDIR: reserved, type=icon, count=1
+  header.writeUInt16LE(0, 0); header.writeUInt16LE(1, 2); header.writeUInt16LE(1, 4);
+  const entry = Buffer.alloc(16); // ICONDIRENTRY: 32×32, PNG data at offset 22
+  entry.writeUInt8(32, 0); entry.writeUInt8(32, 1); entry.writeUInt16LE(1, 4);
+  entry.writeUInt16LE(32, 6); entry.writeUInt32LE(png.length, 8); entry.writeUInt32LE(22, 12);
+  const ico = Buffer.concat([header, entry, png]);
+  await writeFile(path.join(process.cwd(), "public/favicon.ico"), ico);
+  await writeFile(path.join(process.cwd(), "src/app/favicon.ico"), ico);
+  console.log("icon: favicon.ico (public + src/app)");
 }
 
 /* ---------- 2. og.png — real homepage screenshot ---------- */
@@ -196,6 +211,7 @@ await makeIcon(512, "icon-512.png");
 await makeIcon(192, "icon-maskable-192.png", { maskable: true });
 await makeIcon(512, "icon-maskable-512.png", { maskable: true });
 await makeIcon(180, "apple-touch-icon.png");
+await makeFavicon();
 
 const browser = await chromium.launch();
 if (process.env.SKIP_OG !== "1") {

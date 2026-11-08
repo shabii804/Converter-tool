@@ -109,7 +109,7 @@ const favState = await page.evaluate(() => ({
 }));
 
 // 5. recents appear after opening a tool then going home
-await page.locator('button[aria-label^="Merge PDF"]').first().click();
+await page.locator('a[aria-label^="Merge PDF"]').first().click();
 await page.waitForTimeout(600);
 const toolView = await page.evaluate(() => location.href && document.body.innerText.length > 100);
 await page.evaluate(() => window.history.length);
