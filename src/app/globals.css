@@ -2,3 +2,10 @@
 @import "tw-animate-css";
 /* Design tokens — single source of truth (colors, spacing, radius, shadows, type) */
 @import "../design/tokens.css";
+
+/* Smooth anchor scrolling only when the user allows motion */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}

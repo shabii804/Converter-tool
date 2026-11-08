@@ -23,7 +23,7 @@ export function Dropzone({
   multiple?: boolean;
   onFiles: (files: File[]) => void;
   title?: string;
-  subtitle?: string;
+  subtitle?: React.ReactNode;
   hint?: React.ReactNode;
   compact?: boolean;
   className?: string;
