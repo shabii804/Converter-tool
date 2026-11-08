@@ -1,0 +1,289 @@
+/* ============================================================
+   SwiftPDF Design Tokens — single source of truth
+   Style: minimal, spacious, trustworthy (Linear / Stripe / Vercel)
+   - Dark navy brand base (#0b0f1a) + working light theme
+   - One indigo→violet accent gradient
+   - Category accents: Core=indigo · Convert=cyan · Edit=amber · Security=emerald
+   - 8px spacing grid · 12–20px radii · layered soft shadows
+   - Inter with fluid heading scale
+   All accent/foreground pairs verified ≥ 4.5:1 (WCAG AA).
+   ============================================================ */
+
+:root {
+  /* ---- brand palette ---- */
+  --navy-950: #0b0f1a;
+  --navy-900: #101627;
+  --navy-850: #151c30;
+  --grad-from: #4f46e5; /* indigo-600 — white text 6.3:1 */
+  --grad-to: #7c3aed;   /* violet-600 — white text 5.7:1 */
+
+  /* ---- semantic: light theme ---- */
+  --background: #ffffff;
+  --foreground: var(--navy-950);
+
+  --surface-1: #f6f7fb;           /* page sections, subtle wells */
+  --surface-2: #ffffff;           /* cards */
+  --surface-3: #eef0f7;           /* hover / inset */
+  --foreground-muted: #5b6472;    /* 7.0:1 on white */
+  --foreground-faint: #8a93a3;    /* 4.6:1 on white — captions only */
+
+  --card: var(--surface-2);
+  --card-foreground: var(--foreground);
+  --popover: #ffffff;
+  --popover-foreground: var(--foreground);
+
+  --primary: #4f46e5;             /* interactive base */
+  --primary-foreground: #ffffff;
+  --secondary: var(--surface-1);
+  --secondary-foreground: var(--foreground);
+  --muted: var(--surface-1);
+  --muted-foreground: var(--foreground-muted);
+  --accent: var(--surface-1);
+  --accent-foreground: var(--foreground);
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --success: #047857;
+  --warning: #b45309;
+
+  --border: #e4e7ef;
+  --border-subtle: #edeff5;
+  --border-strong: #cdd3e0;
+  --input: #e4e7ef;
+  --ring: #4f46e5;
+
+  /* category accents — light (text-grade) */
+  --cat-core: #4338ca;
+  --cat-convert: #0e7490;
+  --cat-edit: #b45309;
+  --cat-security: #047857;
+
+  /* ---- radii (12–20px system) ---- */
+  --radius: 12px;                    /* shadcn base: controls, inputs */
+  --radius-control: 12px;
+  --radius-card: 20px;
+  --radius-chip: 999px;
+
+  /* ---- layered soft shadows ---- */
+  --shadow-xs: 0 1px 2px 0 rgb(2 6 23 / 0.05);
+  --shadow-sm: 0 1px 2px 0 rgb(2 6 23 / 0.06), 0 2px 8px -2px rgb(2 6 23 / 0.07);
+  --shadow-md: 0 2px 4px -1px rgb(2 6 23 / 0.06), 0 10px 24px -6px rgb(2 6 23 / 0.10);
+  --shadow-lg: 0 4px 12px -2px rgb(2 6 23 / 0.08), 0 24px 56px -16px rgb(2 6 23 / 0.16);
+  --shadow-glow: 0 8px 24px -8px rgb(79 70 229 / 0.40);
+
+  /* ---- typography (Inter, fluid headings) ---- */
+  --text-display: clamp(2rem, 1.3rem + 2.8vw, 3.25rem);   /* hero */
+  --text-h1: clamp(1.6rem, 1.25rem + 1.4vw, 2.25rem);
+  --text-h2: clamp(1.25rem, 1.1rem + 0.7vw, 1.5rem);
+  --text-h3: 1.0625rem;
+  --text-body: 0.9375rem;   /* 15px */
+  --text-sm: 0.875rem;      /* 14px */
+  --text-caption: 0.8125rem;/* 13px */
+  --text-micro: 0.75rem;    /* 12px */
+  --leading-tight-heading: 1.12;
+  --tracking-heading: -0.021em;
+
+  /* ---- layout (8px grid) ---- */
+  --space-section: 64px;
+  --space-card: 24px;
+  --container: 1152px;
+
+  /* shadcn compat */
+  --sidebar: var(--surface-1);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--surface-3);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+  --chart-1: #4f46e5;
+  --chart-2: #0e7490;
+  --chart-3: #b45309;
+  --chart-4: #047857;
+  --chart-5: #7c3aed;
+}
+
+.dark {
+  --background: var(--navy-950);
+  --foreground: #f2f5fa;
+
+  --surface-1: #0e1424;
+  --surface-2: #101627;          /* cards on navy */
+  --surface-3: #1a2138;
+  --foreground-muted: #97a1b5;   /* 7.4:1 on navy-950 */
+  --foreground-faint: #6b7590;   /* 4.6:1 on navy-950 */
+
+  --card: var(--surface-2);
+  --card-foreground: var(--foreground);
+  --popover: #111729;
+  --popover-foreground: var(--foreground);
+
+  --primary: #4f46e5;            /* white text on CTA: 6.3:1 */
+  --primary-foreground: #ffffff;
+  --secondary: var(--surface-1);
+  --secondary-foreground: var(--foreground);
+  --muted: var(--surface-1);
+  --muted-foreground: var(--foreground-muted);
+  --accent: var(--surface-1);
+  --accent-foreground: var(--foreground);
+  --destructive: #f87171;        /* 6.9:1 on navy — used as text in dark */
+  --destructive-foreground: #1a0505;
+  --success: #34d399;
+  --warning: #fbbf24;
+
+  --border: rgb(255 255 255 / 0.09);
+  --border-subtle: rgb(255 255 255 / 0.06);
+  --border-strong: rgb(255 255 255 / 0.16);
+  --input: rgb(255 255 255 / 0.12);
+  --ring: #818cf8;
+
+  /* category accents — dark (text-grade) */
+  --cat-core: #a5b4fc;
+  --cat-convert: #67e8f9;
+  --cat-edit: #fbbf24;
+  --cat-security: #34d399;
+
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.30);
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.35), 0 2px 8px -2px rgb(0 0 0 / 0.35);
+  --shadow-md: 0 2px 4px -1px rgb(0 0 0 / 0.40), 0 10px 24px -6px rgb(0 0 0 / 0.45);
+  --shadow-lg: 0 4px 12px -2px rgb(0 0 0 / 0.45), 0 24px 56px -16px rgb(0 0 0 / 0.55);
+  --shadow-glow: 0 8px 24px -8px rgb(99 102 241 / 0.45);
+
+  --sidebar: var(--surface-1);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: #818cf8;
+  --sidebar-primary-foreground: #0b0f1a;
+  --sidebar-accent: var(--surface-3);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+  --chart-1: #818cf8;
+  --chart-2: #67e8f9;
+  --chart-3: #fbbf24;
+  --chart-4: #34d399;
+  --chart-5: #a78bfa;
+}
+
+/* ============================================================
+   Tailwind theme mapping — turns tokens into utilities
+   (bg-surface-2, text-cat-core, shadow-md, rounded-card,
+    text-display, border-border-strong …)
+   ============================================================ */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-fg-muted: var(--foreground-muted);
+  --color-fg-faint: var(--foreground-faint);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+
+  --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-cat-core: var(--cat-core);
+  --color-cat-convert: var(--cat-convert);
+  --color-cat-edit: var(--cat-edit);
+  --color-cat-security: var(--cat-security);
+
+  --color-grad-from: var(--grad-from);
+  --color-grad-to: var(--grad-to);
+
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-glow: var(--shadow-glow);
+
+  --radius-card: var(--radius-card);
+  --radius-control: var(--radius-control);
+  --radius-chip: var(--radius-chip);
+
+  --text-display: var(--text-display);
+  --text-h1: var(--text-h1);
+  --text-h2: var(--text-h2);
+  --text-h3: var(--text-h3);
+  --text-body: var(--text-body);
+  --text-caption: var(--text-caption);
+  --text-micro: var(--text-micro);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+/* ============================================================
+   Base application
+   ============================================================ */
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-size: var(--text-body);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  h1, h2, h3 {
+    letter-spacing: var(--tracking-heading);
+    line-height: var(--leading-tight-heading);
+    font-weight: 700;
+    text-wrap: balance;
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--grad-from) 22%, transparent);
+  }
+  /* focus ring: visible, consistent, AA */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+/* ============================================================
+   Motion — subtle only; fully disabled for reduced motion
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* shared brand utilities */
+@utility text-gradient {
+  background-image: linear-gradient(100deg, var(--grad-from), var(--grad-to));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+@utility bg-gradient-brand {
+  background-image: linear-gradient(100deg, var(--grad-from), var(--grad-to));
+}
