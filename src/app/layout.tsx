@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "SwiftPDF — Fast, private PDF tools in your browser",
   description:
-    "Merge, split, compress, convert, edit and protect PDFs with one click. 100% in-browser processing — your files never leave your device. No sign-up, no limits, free forever.",
+    "Merge, split, compress, convert, edit and protect PDFs with one click. 100% in-browser processing — your files never leave your device. No sign-up, free forever.",
   keywords: [
     "PDF tools",
     "merge PDF",
