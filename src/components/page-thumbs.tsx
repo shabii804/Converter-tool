@@ -22,6 +22,10 @@ export function PageThumbs({
   selectable = true,
   reorderable = false,
   rotatable = false,
+  /** what a page's membership in `selected` means:
+   *  "keep" (default): in set = kept ✓, off set = removed
+   *  "delete": in set = marked for deletion ✗, off set = kept ✓ */
+  selectionMeans = "keep",
 }: {
   file: File;
   selected?: Set<number>;
@@ -33,6 +37,7 @@ export function PageThumbs({
   selectable?: boolean;
   reorderable?: boolean;
   rotatable?: boolean;
+  selectionMeans?: "keep" | "delete";
 }) {
   const [thumbs, setThumbs] = useState<
     (PageThumb & { width: number; height: number })[] | null
@@ -106,7 +111,8 @@ export function PageThumbs({
         const thumb = byPage.get(page);
         if (!thumb) return null;
         const rot = rotations?.[page] ?? 0;
-        const isSel = selected?.has(page) ?? true;
+        const inSet = selected?.has(page) ?? false;
+        const isSel = selectionMeans === "delete" ? !inSet : inSet;
         // FIX (letterboxing): keep each page's real aspect ratio; swap it
         // when the page is rotated ±90°, so portrait pages stop getting
         // forced into a landscape box.
@@ -151,7 +157,13 @@ export function PageThumbs({
                 <button
                   onClick={() => onToggle?.(page)}
                   aria-label={
-                    isSel ? `Deselect page ${page}` : `Select page ${page}`
+                    selectionMeans === "delete"
+                      ? isSel
+                        ? `Keep page ${page}`
+                        : `Mark page ${page} for deletion`
+                      : isSel
+                        ? `Deselect page ${page}`
+                        : `Select page ${page}`
                   }
                   aria-pressed={isSel}
                   className={cn(

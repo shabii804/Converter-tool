@@ -36,11 +36,11 @@ export function Header() {
         <div className="ml-auto flex items-center gap-2">
           {/* privacy badge */}
           <div
-            className="group relative flex items-center gap-1.5 rounded-chip border border-success/25 bg-success/10 px-3 py-1.5"
+            className="group relative flex items-center gap-1.5 whitespace-nowrap rounded-chip border border-success/25 bg-success/10 px-2.5 py-1.5 sm:px-3"
             title="Your files are processed on your device. Nothing is uploaded, ever."
           >
             <ShieldCheck className="size-3.5 text-success" />
-            <span className="text-micro font-semibold text-success">
+            <span className="text-[11px] font-semibold text-success sm:text-micro">
               0 bytes uploaded
             </span>
             <span className="pointer-events-none absolute -bottom-10 right-0 hidden whitespace-nowrap rounded-control border border-border bg-popover px-2.5 py-1.5 text-micro text-popover-foreground shadow-md group-hover:block sm:hidden">

@@ -49,11 +49,17 @@ function Swatch({
   note?: string;
 }) {
   const [resolved, setResolved] = useState<string>("");
+  const { resolvedTheme } = useTheme();
   useEffect(() => {
-    setResolved(
-      getComputedStyle(document.documentElement).getPropertyValue(token).trim()
-    );
-  }, []);
+    const read = () =>
+      setResolved(
+        getComputedStyle(document.documentElement).getPropertyValue(token).trim()
+      );
+    read();
+    // re-read after the theme class settles
+    const t = setTimeout(read, 80);
+    return () => clearTimeout(t);
+  }, [token, resolvedTheme]);
   return (
     <div className="flex items-center gap-4">
       <span

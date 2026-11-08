@@ -540,12 +540,13 @@ function OptionsPanel({
       return (
         <div className="space-y-5">
           <p className="text-[13px] text-fg-muted">
-            Click ✓ to remove a page · drag cards to reorder · ↻ rotates a page
+            Click a page to mark it for deletion · drag cards to reorder · ↻ rotates a page
           </p>
           {files[0] && (
             <PageThumbs
               file={files[0].file}
               selected={opts.organizeDeleted}
+              selectionMeans="delete"
               onToggle={(p) => {
                 const next = new Set(opts.organizeDeleted);
                 if (next.has(p)) next.delete(p);

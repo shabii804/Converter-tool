@@ -56,6 +56,11 @@
   --cat-convert: #0e7490;
   --cat-edit: #b45309;
   --cat-security: #047857;
+  /* soft tint fills for icon tiles (≈10%) */
+  --cat-core-tint: rgb(67 56 202 / 0.09);
+  --cat-convert-tint: rgb(14 116 144 / 0.09);
+  --cat-edit-tint: rgb(180 83 9 / 0.09);
+  --cat-security-tint: rgb(4 120 87 / 0.09);
 
   /* ---- radii (12–20px system) ---- */
   --radius: 12px;                    /* shadcn base: controls, inputs */
@@ -142,6 +147,11 @@
   --cat-convert: #67e8f9;
   --cat-edit: #fbbf24;
   --cat-security: #34d399;
+  /* soft tint fills for icon tiles (≈11%) */
+  --cat-core-tint: rgb(165 180 252 / 0.11);
+  --cat-convert-tint: rgb(103 232 249 / 0.09);
+  --cat-edit-tint: rgb(251 191 36 / 0.09);
+  --cat-security-tint: rgb(52 211 153 / 0.09);
 
   --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.30);
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.35), 0 2px 8px -2px rgb(0 0 0 / 0.35);
