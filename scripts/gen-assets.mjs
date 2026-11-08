@@ -8,8 +8,11 @@
 import sharp from "sharp";
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 
+/** ONLY=brand → PWA icons + og.png only (skip the blog flow screenshots). */
+const BRAND_ONLY = process.env.ONLY === "brand";
 const BASE = process.env.BASE ?? "http://localhost:3101";
 const SAMPLES = path.join(process.cwd(), "tests/baseline/samples");
 const BLOG = path.join(process.cwd(), "public/blog");
@@ -17,23 +20,21 @@ const SHOTS = path.join(process.cwd(), "tests/lighthouse/shots");
 mkdirSync(BLOG, { recursive: true });
 mkdirSync(SHOTS, { recursive: true });
 
-/* ---------- 1. PWA icons from the real logo ---------- */
+/* ---------- 1. PWA icons from the real logo ----------
+ * Single source of truth: the SVG brand files themselves.
+ *   public/logo.svg           → rounded badge (regular icons)
+ *   public/logo-fullbleed.svg → edge-to-edge art inside the maskable safe zone
+ */
 
 const LOGO = path.join(process.cwd(), "public/logo.svg");
+const LOGO_FULLBLEED = path.join(process.cwd(), "public/logo-fullbleed.svg");
 
 async function makeIcon(size, file, { maskable = false } = {}) {
-  const pad = maskable ? Math.round(size * 0.18) : Math.round(size * 0.08);
-  const inner = size - pad * 2;
-  const svg = `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
-    <rect width="${size}" height="${size}" rx="${maskable ? 0 : Math.round(size * 0.22)}" fill="#0b0f1a"/>
-    <g transform="translate(${pad}, ${pad}) scale(${inner / 30})">
-      <rect x="0" y="0" width="30" height="30" rx="7" fill="#2D2D2D" stroke="#FFFFFF" stroke-width="0.6317"/>
-      <path d="M15.47,7.1l-1.3,1.85c-0.2,0.29-0.54,0.47-0.9,0.47h-7.1V7.09C6.16,7.1,15.47,7.1,15.47,7.1z" fill="#FFFFFF"/>
-      <polygon points="24.3,7.1 13.14,22.91 5.7,22.91 16.86,7.1" fill="#FFFFFF"/>
-      <path d="M14.53,22.91l1.31-1.86c0.2-0.29,0.54-0.47,0.9-0.47h7.09v2.33H14.53z" fill="#FFFFFF"/>
-    </g>
-  </svg>`;
-  await sharp(Buffer.from(svg)).png().toFile(path.join(process.cwd(), "public", file));
+  const src = await readFile(maskable ? LOGO_FULLBLEED : LOGO, "utf8");
+  await sharp(Buffer.from(src), { density: Math.round((72 * size) / 32) })
+    .resize(size, size)
+    .png()
+    .toFile(path.join(process.cwd(), "public", file));
   console.log("icon:", file);
 }
 
@@ -197,10 +198,16 @@ await makeIcon(512, "icon-maskable-512.png", { maskable: true });
 await makeIcon(180, "apple-touch-icon.png");
 
 const browser = await chromium.launch();
-const ctx = await browser.newContext({ viewport: { width: 1200, height: 630 } });
-const page = await ctx.newPage();
-await makeOg(page);
-await ctx.close();
-await blogShots(browser);
+if (process.env.SKIP_OG !== "1") {
+  const ctx = await browser.newContext({ viewport: { width: 1200, height: 630 } });
+  const page = await ctx.newPage();
+  await makeOg(page);
+  await ctx.close();
+} else {
+  console.log("og skipped (SKIP_OG=1)");
+}
+if (!BRAND_ONLY) {
+  await blogShots(browser);
+}
 await browser.close();
-console.log("all assets generated");
+console.log(BRAND_ONLY ? "brand assets generated" : "all assets generated");

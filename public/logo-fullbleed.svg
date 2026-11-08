@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <defs>
+    <linearGradient id="spdfBg" x1="3" y1="2.5" x2="29" y2="30" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6366F1"/>
+      <stop offset="0.52" stop-color="#7C5BF6"/>
+      <stop offset="1" stop-color="#8B5CF6"/>
+    </linearGradient>
+    <linearGradient id="spdfBolt" x1="13" y1="11" x2="20" y2="25" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4338CA"/>
+      <stop offset="1" stop-color="#6D28D9"/>
+    </linearGradient>
+    <clipPath id="spdfClip"><rect width="32" height="32"/></clipPath>
+  </defs>
+  <rect width="32" height="32" fill="url(#spdfBg)"/>
+  <g clip-path="url(#spdfClip)"><ellipse cx="9" cy="5" rx="16" ry="11" fill="#fff" opacity="0.14"/></g>
+  <g transform="translate(4.6,4.6) scale(0.7125)">
+    <path d="M9.75 6.5h6.75l7 7v10.25A2.25 2.25 0 0 1 21.25 26h-11.5A2.25 2.25 0 0 1 7.5 23.75V8.75A2.25 2.25 0 0 1 9.75 6.5Z" fill="#fff"/>
+    <path d="M16.5 6.5v4.75a2.25 2.25 0 0 0 2.25 2.25H23.5l-7-7Z" fill="#C7D2FE"/>
+    <path d="M17.7 11.4 12.9 18.7h3.1l-1.6 6.3 5.3-7.6h-3.2l2-6Z" fill="url(#spdfBolt)"/>
+  </g>
+</svg>
