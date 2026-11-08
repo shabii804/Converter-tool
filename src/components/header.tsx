@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
-import { TOOLS, type ToolCategory } from "@/lib/tools";
+import { TOOLS, type ToolCategory, type ToolDef } from "@/lib/tools";
 import { LOCALES } from "@/lib/i18n";
 import { useCopy, useLocale, useLocaleHref } from "@/lib/i18n-hooks";
 import { useToolNav } from "@/lib/use-tool-nav";
@@ -13,11 +13,29 @@ import { IconTile } from "@/components/kit/icon-tile";
 import { Modal, ModalContent } from "@/components/kit/modal";
 import { categoryMeta } from "@/components/kit/category";
 import { useTheme } from "next-themes";
-import { Moon, Sun, ShieldCheck, Command, ChevronDown, Globe, Check, X } from "lucide-react";
+import { Moon, Sun, ShieldCheck, Search, ChevronDown, Globe, Check, X } from "lucide-react";
 import { Logo } from "./logo";
 import { cn } from "@/lib/utils";
 
 const CAT_ORDER: ToolCategory[] = ["core", "convert", "edit", "security"];
+
+/**
+ * Desktop mega-menu column plan: categories chunked into ≤7-item columns so
+ * no column dominates the panel height (Convert's 12 tools used to stretch
+ * one column while Security left half the panel empty). Continuation columns
+ * get an invisible header spacer so every list starts on the same baseline.
+ */
+const MEGA_CHUNK = 7;
+const MEGA_COLS: { cat: ToolCategory; tools: ToolDef[]; header: boolean }[] = (() => {
+  const cols: { cat: ToolCategory; tools: ToolDef[]; header: boolean }[] = [];
+  for (const cat of CAT_ORDER) {
+    const tools = TOOLS.filter((x) => x.category === cat);
+    for (let i = 0; i < tools.length; i += MEGA_CHUNK) {
+      cols.push({ cat, tools: tools.slice(i, i + MEGA_CHUNK), header: i === 0 });
+    }
+  }
+  return cols;
+})();
 
 export function Header() {
   const { resolvedTheme, setTheme } = useTheme();
@@ -120,7 +138,7 @@ export function Header() {
             aria-expanded={megaOpen}
             aria-haspopup="true"
             aria-label={t.nav.tools}
-            className="rounded-chip font-semibold"
+            className="rounded-chip px-2 font-semibold sm:px-4"
           >
             {t.nav.tools}
             <ChevronDown
@@ -129,46 +147,53 @@ export function Header() {
             />
           </Button>
 
-          {/* Desktop mega panel */}
+          {/* Desktop mega panel — chunked, evenly balanced columns */}
           {megaOpen && (
             <div
               role="group"
               aria-label={t.mega.aria}
-              className="absolute left-0 top-[calc(100%+10px)] z-50 grid max-h-[78dvh] w-[min(880px,calc(100vw-32px))] grid-cols-2 gap-x-6 gap-y-5 overflow-y-auto rounded-card border border-border bg-surface-1 p-6 shadow-lg lg:grid-cols-4"
+              className="absolute left-0 top-[calc(100%+10px)] z-50 max-h-[78dvh] w-[min(1120px,calc(100vw-32px))] overflow-y-auto rounded-card border border-border bg-surface-1 p-6 shadow-lg"
             >
-              {CAT_ORDER.map((cat) => {
-                const meta = categoryMeta(cat);
-                const tools = TOOLS.filter((x) => x.category === cat);
-                return (
-                  <div key={cat}>
-                    <button
-                      onClick={() => pickCategory(cat)}
-                      className="flex min-h-11 flex-col items-start justify-center rounded-control px-2 text-left outline-none transition-colors hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-ring"
-                      style={{ color: `var(${meta.accentVar})` }}
-                    >
-                      <span className="text-[13px] font-bold uppercase tracking-wide">
-                        {t.cats[cat]}
-                      </span>
-                      <span className="mt-0.5 text-[11px] font-medium normal-case tracking-normal text-fg-faint">
-                        {meta.description}
-                      </span>
-                    </button>
-                    <ul className="mt-2 space-y-0.5">
-                      {tools.map((tool) => (
-                        <li key={tool.id}>
-                          <button
-                            onClick={() => pickTool(tool.id)}
-                            className="flex min-h-11 w-full items-center gap-2.5 rounded-control px-2 text-left text-[13px] font-medium text-fg-muted outline-none transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-                          >
-                            <IconTile icon={tool.icon} category={tool.category} size="sm" />
-                            <span className="truncate">{tool.name}</span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                );
-              })}
+              <div
+                className="grid gap-x-6"
+                style={{ gridTemplateColumns: `repeat(${MEGA_COLS.length}, minmax(0, 1fr))` }}
+              >
+                {MEGA_COLS.map((col, ci) => {
+                  const meta = categoryMeta(col.cat);
+                  return (
+                    <div key={`${col.cat}-${ci}`}>
+                      {col.header ? (
+                        <button
+                          onClick={() => pickCategory(col.cat)}
+                          className="flex h-9 w-full items-center rounded-control px-2 text-left text-[12px] font-bold uppercase leading-none tracking-wide outline-none transition-colors hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-ring"
+                          style={{ color: `var(${meta.accentVar})` }}
+                        >
+                          {t.cats[col.cat]}
+                        </button>
+                      ) : (
+                        <div className="h-9" aria-hidden="true" />
+                      )}
+                      <ul className="mt-1.5 space-y-0.5">
+                        {col.tools.map((tool) => (
+                          <li key={tool.id}>
+                            <button
+                              onClick={() => pickTool(tool.id)}
+                              className="flex min-h-11 w-full items-center gap-2 rounded-control px-2 text-left text-[13px] font-medium leading-snug text-fg-muted outline-none transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                            >
+                              <tool.icon
+                                className="size-4 shrink-0"
+                                style={{ color: `var(${meta.accentVar})` }}
+                                aria-hidden="true"
+                              />
+                              <span>{tool.name}</span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
@@ -195,17 +220,19 @@ export function Header() {
             size="md"
             onClick={() => setPalette(true)}
             aria-label={`${t.nav.search} (Ctrl+K)`}
-            className="rounded-chip px-3 sm:px-4"
+            className="rounded-chip px-2 sm:px-4"
           >
-            <Command aria-hidden="true" />
-            <span className="hidden md:inline">{t.nav.search}</span>
+            <Search aria-hidden="true" />
+            <span className="max-w-[72px] truncate text-[13px] sm:max-w-none sm:text-sm">
+              {t.nav.search}
+            </span>
             <kbd className="hidden h-5 items-center rounded border border-border bg-surface-3 px-1.5 font-mono text-[10px] text-fg-muted lg:inline-flex">
               Ctrl K
             </kbd>
           </Button>
 
-          {/* language switcher */}
-          <div className="relative" ref={langRef}>
+          {/* language switcher — desktop; on phones it lives inside the Tools sheet */}
+          <div className="relative hidden sm:block" ref={langRef}>
             <Button
               ref={langTrigger as never}
               variant="secondary"
@@ -297,6 +324,32 @@ export function Header() {
                 </div>
               );
             })}
+
+            {/* language — compact chips (no room for a globe dropdown on phones) */}
+            <div className="border-t border-border-subtle pt-5">
+              <p className="px-2 text-[11px] font-bold uppercase tracking-wide text-fg-faint">
+                {t.lang.label}
+              </p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {LOCALES.map((l) => (
+                  <Link
+                    key={l.id}
+                    href={localeSwitchHref(l.id)}
+                    onClick={() => setSheetOpen(false)}
+                    hrefLang={l.id}
+                    className={cn(
+                      "flex min-h-11 items-center rounded-chip border px-3.5 text-[13px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+                      locale === l.id
+                        ? "border-primary/40 bg-primary/10 text-primary"
+                        : "border-border text-fg-muted hover:bg-surface-2 hover:text-foreground"
+                    )}
+                  >
+                    {l.label}
+                    {locale === l.id && <Check className="ml-1.5 size-3.5" aria-hidden="true" />}
+                  </Link>
+                ))}
+              </div>
+            </div>
           </div>
         </ModalContent>
       </Modal>
