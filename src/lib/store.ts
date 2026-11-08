@@ -326,6 +326,10 @@ export const useStore = create<AppState>((set, get) => ({
 }));
 
 export function matchesTool(f: File, accept: string, input: string): boolean {
+  if (input === "none") return false;
+  // open image inputs (image/*) only for tools that declare them;
+  // jpg-to-pdf keeps its historical strict jpeg/png behavior
+  if (accept === "image/*") return f.type.startsWith("image/");
   if (input === "image") {
     return f.type === "image/jpeg" || f.type === "image/png";
   }

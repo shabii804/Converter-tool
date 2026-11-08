@@ -1,5 +1,6 @@
 import { useStore } from "./store";
 import { runTool, type EngineResult } from "./pdf-engine";
+import { isExtraTool, runExtraTool } from "./extra-engine";
 import { toast } from "sonner";
 import { toolById } from "./tools";
 
@@ -27,7 +28,18 @@ export async function executeRun(
   };
 
   try {
-    const result: EngineResult = await runTool(toolId, entries, opts, {
+    const result: EngineResult = isExtraTool(toolId)
+      ? await runExtraTool(toolId, entries, opts, {
+          onOverall: (p) => {
+            const keys = Object.keys(jobs);
+            const last = keys[keys.length - 1];
+            if (last) updateJob(last, { status: "processing", progress: p });
+          },
+          onFileProgress: (id, p) => {
+            if (jobs[id]) updateJob(id, { status: "processing", progress: p });
+          },
+        })
+      : await runTool(toolId, entries, opts, {
       onOverall: (p) => {
         const keys = Object.keys(jobs);
         const last = keys[keys.length - 1];

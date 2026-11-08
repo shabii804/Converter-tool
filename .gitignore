@@ -4,3 +4,4 @@ dev.log
 server.log
 tool-results/
 tests/baseline/harness/harness.js
+tests/toolcheck/harness/harness.js

@@ -16,6 +16,17 @@ import {
   Crop,
   Lock,
   Unlock,
+  PenLine,
+  Signature,
+  Target,
+  ImageDown,
+  Scaling,
+  RefreshCw,
+  FileImage,
+  ImageUp,
+  Text,
+  Type,
+  EyeOff,
 } from "lucide-react";
 
 export type ToolCategory = "core" | "convert" | "edit" | "security";
@@ -35,8 +46,8 @@ export interface ToolDef {
   maxFiles: number;
   /** whether the input can be multiple PDF files */
   multiPdf?: boolean;
-  /** input kind */
-  input: "pdf" | "image" | "docx";
+  /** input kind ("none" = text typed into the panel, e.g. Text to PDF) */
+  input: "pdf" | "image" | "docx" | "none";
   /** needs per-page thumbnails */
   needsThumbs?: boolean;
   /** does the tool run with zero user options (true one-click) */
@@ -274,6 +285,171 @@ export const TOOLS: ToolDef[] = [
     minFiles: 1,
     maxFiles: 10,
     input: "pdf",
+  },
+  {
+    id: "edit-pdf",
+    name: "Edit PDF",
+    tagline: "Text, highlights, shapes, images",
+    description:
+      "Add text, highlights, freehand drawings, shapes and images anywhere on the page.",
+    keywords: "annotate add text highlight draw shapes image comment",
+    badge: "New",
+    category: "edit",
+    icon: PenLine,
+    accept: "application/pdf",
+    minFiles: 1,
+    maxFiles: 1,
+    input: "pdf",
+  },
+  {
+    id: "sign-pdf",
+    name: "Sign PDF",
+    tagline: "Draw, type or upload a signature",
+    description:
+      "Sign documents with a drawn, typed or uploaded signature — placed exactly where it belongs.",
+    keywords: "signature esign sign document draw initials",
+    badge: "New",
+    category: "edit",
+    icon: Signature,
+    accept: "application/pdf",
+    minFiles: 1,
+    maxFiles: 1,
+    input: "pdf",
+  },
+  {
+    id: "redact-pdf",
+    name: "Redact PDF",
+    tagline: "Permanently remove sensitive text",
+    description:
+      "Black out secrets and burn them in — the underlying text is permanently removed, not covered up.",
+    keywords: "redact black out censor hide remove confidential",
+    badge: "New",
+    category: "security",
+    icon: EyeOff,
+    accept: "application/pdf",
+    minFiles: 1,
+    maxFiles: 1,
+    input: "pdf",
+  },
+  {
+    id: "compress-target",
+    name: "Compress to Target Size",
+    tagline: "Hit 100KB, 200KB, 500KB or 1MB",
+    description:
+      "Shrink a PDF to a specific size preset. Reaches the target by re-encoding pages as images.",
+    keywords: "target size 100kb 200kb 500kb 1mb specific kb compress exact",
+    badge: "New",
+    category: "core",
+    icon: Target,
+    accept: "application/pdf",
+    minFiles: 1,
+    maxFiles: 1,
+    input: "pdf",
+  },
+  {
+    id: "compress-image",
+    name: "Compress Image",
+    tagline: "Smaller JPG or WebP files",
+    description:
+      "Reduce image file size with a quality slider and optional downscaling.",
+    keywords: "image compress reduce jpg webp photo size",
+    badge: "New",
+    category: "convert",
+    icon: ImageDown,
+    accept: "image/*",
+    minFiles: 1,
+    maxFiles: 50,
+    input: "image",
+  },
+  {
+    id: "resize-image",
+    name: "Resize Image",
+    tagline: "Exact width, height or percent",
+    description:
+      "Change image dimensions by width, height, percentage or fit inside a box.",
+    keywords: "image resize dimensions scale width height percent",
+    badge: "New",
+    category: "convert",
+    icon: Scaling,
+    accept: "image/*",
+    minFiles: 1,
+    maxFiles: 50,
+    input: "image",
+  },
+  {
+    id: "convert-image",
+    name: "Convert Image",
+    tagline: "Between JPG, PNG and WebP",
+    description:
+      "Convert images between JPG, PNG and WebP formats, right in your browser.",
+    keywords: "image convert jpg png webp format change",
+    badge: "New",
+    category: "convert",
+    icon: RefreshCw,
+    accept: "image/*",
+    minFiles: 1,
+    maxFiles: 50,
+    input: "image",
+  },
+  {
+    id: "pdf-to-png",
+    name: "PDF to PNG",
+    tagline: "Lossless page images",
+    description:
+      "Render each PDF page as a crisp, lossless PNG image at up to 3× resolution.",
+    keywords: "png image export lossless convert render",
+    badge: "New",
+    category: "convert",
+    icon: FileImage,
+    accept: "application/pdf",
+    minFiles: 1,
+    maxFiles: 10,
+    input: "pdf",
+  },
+  {
+    id: "extract-images",
+    name: "Extract Images",
+    tagline: "Pull embedded images out of a PDF",
+    description:
+      "Get every embedded image out of a PDF as PNG or JPG files.",
+    keywords: "extract images embedded pull pictures assets",
+    badge: "New",
+    category: "convert",
+    icon: ImageUp,
+    accept: "application/pdf",
+    minFiles: 1,
+    maxFiles: 5,
+    input: "pdf",
+  },
+  {
+    id: "extract-text",
+    name: "Extract Text",
+    tagline: "Raw .txt from the text layer",
+    description:
+      "Pull the full text layer of a PDF into a plain .txt file, in reading order.",
+    keywords: "extract text txt plain copy content scrape",
+    badge: "New",
+    category: "convert",
+    icon: Text,
+    accept: "application/pdf",
+    minFiles: 1,
+    maxFiles: 5,
+    input: "pdf",
+  },
+  {
+    id: "text-to-pdf",
+    name: "Text to PDF",
+    tagline: "Typed text into a tidy document",
+    description:
+      "Turn pasted text into a paginated PDF with your choice of font, size and page size.",
+    keywords: "text to pdf write type create document generate",
+    badge: "New",
+    category: "convert",
+    icon: Type,
+    accept: "",
+    minFiles: 0,
+    maxFiles: 0,
+    input: "none",
   },
 ];
 
