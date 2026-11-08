@@ -710,8 +710,15 @@ export function AnnotationEditor({
         {toolsForMode.map((t) => (
           <button
             key={t.id}
-            onClick={() => setTool(t.id)}
-            aria-pressed={tool === t.id}
+            onClick={() => {
+              if (t.id === "sig") {
+                setSigModalOpen(true);
+                setTool("select");
+              } else {
+                setTool(t.id);
+              }
+            }}
+            aria-pressed={tool === t.id && t.id !== "sig"}
             aria-label={t.label}
             title={t.label}
             className={cn(
@@ -1210,20 +1217,37 @@ function SignatureModal({
     setHasInk(false);
   };
 
-  const renderTyped = () => {
-    const c = canvasRef.current!;
+  const renderTyped = (text: string) => {
+    const c = canvasRef.current;
+    if (!c) return;
     const ctx = c.getContext("2d")!;
     ctx.clearRect(0, 0, c.width, c.height);
     ctx.fillStyle = ink;
     ctx.font = "72px Caveat, cursive";
     ctx.textBaseline = "middle";
-    ctx.fillText(typed, 24, c.height / 2);
-    setHasInk(!!typed.trim());
+    ctx.fillText(text, 24, c.height / 2);
+    setHasInk(!!text.trim());
   };
 
+  /* canvas is shared across tabs — clear it whenever the tab changes */
+  useEffect(() => {
+    const c = canvasRef.current;
+    if (open && c) {
+      c.getContext("2d")!.clearRect(0, 0, c.width, c.height);
+      setHasInk(false);
+    }
+  }, [open, tab]);
+
+  /* keep the typed preview in sync with text + ink (no stale closures) */
+  useEffect(() => {
+    if (open && tab === "type") renderTyped(typed);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, tab, typed, ink]);
+
   const save = () => {
-    const c = canvasRef.current!;
-    if (!hasInk) return;
+    const c = canvasRef.current;
+    if (!c) return;
+    if (tab === "type" ? !typed.trim() : !hasInk) return;
     // trim to content bounding box for a tight placement
     const ctx = c.getContext("2d")!;
     const img = ctx.getImageData(0, 0, c.width, c.height);
@@ -1334,10 +1358,7 @@ function SignatureModal({
           <div className="space-y-3">
             <input
               value={typed}
-              onChange={(e) => {
-                setTyped(e.target.value);
-                requestAnimationFrame(renderTyped);
-              }}
+              onChange={(e) => setTyped(e.target.value)}
               placeholder="Your name"
               aria-label="Type your name"
               className="min-h-11 w-full rounded-control border border-border bg-background p-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"

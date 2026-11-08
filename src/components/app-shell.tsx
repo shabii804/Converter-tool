@@ -6,7 +6,7 @@
  * shell opens that tool on mount (files already in the store are kept)
  * and returns to "/" when the user navigates home.
  */
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useStore } from "@/lib/store";
@@ -36,6 +36,11 @@ export function AppShell({ deepLinkToolId }: { deepLinkToolId?: string }) {
   const reduce = useReducedMotion();
   const router = useRouter();
   const openedRef = useRef(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   /* restore local-only prefs (language, favorites, recents) after mount */
   useEffect(() => {
@@ -83,12 +88,15 @@ export function AppShell({ deepLinkToolId }: { deepLinkToolId?: string }) {
             exit={reduce ? undefined : { opacity: 0, y: -8 }}
             transition={reduce ? { duration: 0 } : { duration: 0.22, ease: "easeOut" }}
           >
-            {view === "home" && (
+            {view === "home" && (!deepLinkToolId || mounted) && (
               <>
                 <Hero />
                 <ToolGrid />
                 <HomeSections />
               </>
+            )}
+            {view === "home" && deepLinkToolId && !mounted && (
+              <div className="min-h-[60dvh]" aria-hidden="true" />
             )}
             {view === "tool" && <Workspace />}
             {view === "processing" && <Processing />}
