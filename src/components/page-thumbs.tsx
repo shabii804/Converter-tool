@@ -1,0 +1,176 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { makeThumbnails } from "@/lib/pdf-engine";
+import { Skeleton } from "@/components/ui/skeleton";
+import { RotateCw, GripVertical, X } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+export interface PageThumb {
+  dataUrl: string;
+  page: number;
+}
+
+export function PageThumbs({
+  file,
+  selected,
+  onToggle,
+  onReorder,
+  onRotate,
+  rotations,
+  deletable,
+  selectable = true,
+  reorderable = false,
+  rotatable = false,
+}: {
+  file: File;
+  selected?: Set<number>;
+  onToggle?: (page: number) => void;
+  onReorder?: (order: number[]) => void;
+  onRotate?: (page: number) => void;
+  rotations?: Record<number, number>;
+  deletable?: boolean;
+  selectable?: boolean;
+  reorderable?: boolean;
+  rotatable?: boolean;
+}) {
+  const [thumbs, setThumbs] = useState<PageThumb[] | null>(null);
+  const [order, setOrder] = useState<number[] | null>(null);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loadedFor, setLoadedFor] = useState<File | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    makeThumbnails(file, { targetWidth: 190 })
+      .then((t) => {
+        if (!alive) return;
+        setThumbs(t.map((x) => ({ dataUrl: x.dataUrl, page: x.page })));
+        setOrder(t.map((x) => x.page));
+        setLoadedFor(file);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setError("Could not render preview for this file");
+        setLoadedFor(file);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [file]);
+
+  const showSkeleton = loadedFor !== file;
+  const showError = loadedFor === file ? error : null;
+
+  if (showError)
+    return (
+      <p className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+        {showError}
+      </p>
+    );
+
+  if (showSkeleton || !thumbs)
+    return (
+      <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Skeleton key={i} className="aspect-[3/4] rounded-xl" />
+        ))}
+      </div>
+    );
+
+  const display = order ?? thumbs.map((t) => t.page);
+  const byPage = new Map(thumbs.map((t) => [t.page, t]));
+
+  const move = (from: number, to: number) => {
+    if (!order) return;
+    const next = [...order];
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item);
+    setOrder(next);
+    onReorder?.(next);
+  };
+
+  return (
+    <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+      {display.map((page, idx) => {
+        const thumb = byPage.get(page);
+        if (!thumb) return null;
+        const rot = rotations?.[page] ?? 0;
+        const isSel = selected?.has(page) ?? true;
+        return (
+          <div
+            key={page}
+            draggable={reorderable}
+            onDragStart={() => setDragIdx(idx)}
+            onDragEnd={() => setDragIdx(null)}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              if (dragIdx !== null && dragIdx !== idx) move(dragIdx, idx);
+              setDragIdx(null);
+            }}
+            className={cn(
+              "group relative rounded-xl transition-all",
+              reorderable && "cursor-grab active:cursor-grabbing",
+              dragIdx === idx && "opacity-40",
+              deletable && !isSel && "opacity-35"
+            )}
+          >
+            <div className="relative overflow-hidden rounded-xl border bg-white shadow-sm transition-all group-hover:border-primary/50 group-hover:shadow-md dark:bg-white">
+              <img
+                src={thumb.dataUrl}
+                alt={`Page ${page}`}
+                className="block w-full transition-transform"
+                style={{
+                  transform: rot ? `rotate(${rot}deg)` : undefined,
+                  aspectRatio: rot % 180 === 90 ? "3/4" : "4/3",
+                  objectFit: "contain",
+                }}
+                draggable={false}
+              />
+              {selectable && (
+                <button
+                  onClick={() => onToggle?.(page)}
+                  aria-label={
+                    isSel ? `Deselect page ${page}` : `Select page ${page}`
+                  }
+                  aria-pressed={isSel}
+                  className={cn(
+                    "absolute left-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full border text-[11px] font-bold shadow-sm transition-all",
+                    isSel
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-white/90 text-muted-foreground hover:border-primary/50"
+                  )}
+                >
+                  {isSel ? "✓" : ""}
+                </button>
+              )}
+              {rotatable && (
+                <button
+                  onClick={() => onRotate?.(page)}
+                  aria-label={`Rotate page ${page}`}
+                  className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-white/90 text-muted-foreground opacity-0 shadow-sm transition-all hover:text-primary group-hover:opacity-100"
+                >
+                  <RotateCw className="h-3.5 w-3.5" />
+                </button>
+              )}
+              <span className="absolute bottom-1.5 right-1.5 rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                {page}
+              </span>
+              {reorderable && (
+                <span className="absolute bottom-1.5 left-1.5 rounded-md bg-black/35 p-0.5 text-white opacity-0 transition group-hover:opacity-100">
+                  <GripVertical className="h-3.5 w-3.5" />
+                </span>
+              )}
+              {deletable && !isSel && (
+                <span className="absolute inset-x-0 bottom-0 top-0 flex items-center justify-center">
+                  <X className="h-5 w-5 text-destructive drop-shadow" />
+                </span>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
