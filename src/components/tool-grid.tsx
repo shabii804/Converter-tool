@@ -51,7 +51,7 @@ export function ToolGrid() {
     .filter((x): x is (typeof TOOLS)[number] => Boolean(x));
 
   return (
-    <section id="tools" className="mx-auto max-w-6xl scroll-mt-20 px-4 pb-16 pt-10 sm:px-6 sm:pt-12">
+    <section id="tools" className="mx-auto max-w-6xl scroll-mt-20 px-4 pb-16 pt-8 sm:px-6 sm:pt-10">
       <div className="mb-6 flex flex-col gap-4 sm:mb-8 lg:flex-row lg:items-center lg:justify-between">
         <h2 className="text-h2 font-bold tracking-heading">
           {t.grid.title}

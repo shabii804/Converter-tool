@@ -77,7 +77,7 @@ export function Dropzone({
           "block w-full cursor-pointer rounded-card border-2 border-dashed bg-surface-2/60 text-center outline-none transition-all duration-200",
           "hover:border-border-strong hover:bg-surface-1/70 hover:shadow-sm",
           "focus-visible:ring-2 focus-visible:ring-ring",
-          compact ? "p-6" : "p-8 sm:p-12",
+          compact ? "p-6" : "p-7 sm:p-10",
           dragging && "border-ring bg-primary/[0.05] shadow-md"
         )}
         style={!dragging ? { borderColor: "var(--border-strong)" } : undefined}
