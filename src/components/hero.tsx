@@ -3,7 +3,7 @@
 import { useCallback } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { useStore } from "@/lib/store";
-import { toolById } from "@/lib/tools";
+import { TOOLS, toolById } from "@/lib/tools";
 import { useToolNav } from "@/lib/use-tool-nav";
 import { executeRun } from "@/lib/pipeline";
 import { useCopy } from "@/lib/i18n-hooks";
@@ -51,37 +51,56 @@ export function Hero() {
   return (
     <section className="relative overflow-hidden">
       <MeshBackdrop />
-      <div className="relative mx-auto max-w-6xl px-4 pb-4 pt-10 sm:px-6 sm:pt-14">
+      <div className="relative mx-auto max-w-6xl px-4 pb-2 pt-8 sm:px-6 sm:pt-12">
         <div className="mx-auto max-w-3xl text-center">
+          <p className="mb-4 flex items-center justify-center gap-1.5 text-xs font-semibold text-fg-muted sm:text-[13px]">
+            <Sparkles className="size-3.5 text-primary" aria-hidden="true" />
+            {t.hero.eyebrow.replace("{n}", String(TOOLS.length))}
+          </p>
           <h1 className="text-display font-bold tracking-heading">
             {t.hero.h1a}{" "}
             <span className="text-gradient">{t.hero.h1b}</span>
           </h1>
-          <p className="mx-auto mt-4 max-w-xl text-body text-fg-muted sm:text-base">
+          <p className="mx-auto mt-3 max-w-xl text-body text-fg-muted sm:mt-4 sm:text-base">
             {t.hero.sub}
           </p>
         </div>
 
         {/* dropzone (Ctrl+V paste handled inside Dropzone) */}
-        <div className="relative mx-auto mt-8 max-w-3xl sm:mt-10">
+        <div className="relative mx-auto mt-6 max-w-3xl sm:mt-8">
           <Dropzone
             accept="application/pdf,image/jpeg,image/png,.docx"
             onFiles={onFiles}
             title={t.hero.dropTitle}
             subtitle={
               <>
-                <span className="font-semibold text-primary">{t.hero.dropBrowse}</span> ·{" "}
-                {t.hero.dropPaste}{" "}
-                <kbd className="rounded border border-border bg-surface-3 px-1.5 py-0.5 font-mono text-[10px]">
-                  Ctrl+V
-                </kbd>
+                <span className="font-semibold text-primary">{t.hero.dropBrowse}</span>
+                {/* paste needs a keyboard — desktop-only affordance */}
+                <span className="hidden sm:inline">
+                  {" · "}{t.hero.dropPaste}{" "}
+                  <kbd className="rounded border border-border bg-surface-3 px-1.5 py-0.5 font-mono text-[10px]">
+                    Ctrl+V
+                  </kbd>
+                </span>
               </>
             }
-            hint={t.hero.dropHint}
+            hint={
+              <span className="inline-flex flex-wrap items-center justify-center gap-1.5">
+                <span className="sr-only">{t.hero.formatsLabel}</span>
+                {["PDF", "JPG", "PNG", "DOCX"].map((f) => (
+                  <span
+                    key={f}
+                    className="rounded-chip border border-border bg-surface-2 px-2 py-0.5 font-mono text-[10px] font-semibold tracking-wide text-fg-muted"
+                  >
+                    {f}
+                  </span>
+                ))}
+              </span>
+            }
           />
 
-          {/* trust chips */}
-          <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+          {/* trust chips — balanced 2×2 grid on phones, single row on ≥sm */}
+          <div className="mt-4 grid grid-cols-2 justify-items-center gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-center">
             {[
               { icon: ShieldCheck, label: t.hero.chips.private, cls: "text-success" },
               { icon: WifiOff, label: t.hero.chips.offline, cls: "text-primary" },
@@ -90,7 +109,7 @@ export function Hero() {
             ].map((c) => (
               <span
                 key={c.label}
-                className="inline-flex items-center gap-1.5 rounded-chip border border-border bg-surface-2/70 px-3 py-1.5 text-[13px] font-medium text-fg-muted shadow-xs backdrop-blur"
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-chip border border-border bg-surface-2/70 px-3 py-2 text-[13px] font-medium text-fg-muted shadow-xs backdrop-blur sm:w-auto sm:py-1.5"
               >
                 <c.icon className={`size-3.5 ${c.cls}`} aria-hidden="true" />
                 {c.label}
