@@ -1,0 +1,1142 @@
+     1→"use client";
+     2→
+     3→import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+     4→import { motion } from "framer-motion";
+     5→import { useStore, type StoreFile } from "@/lib/store";
+     6→import { toolById } from "@/lib/tools";
+     7→import { firstPagePreview } from "@/lib/pdf-engine";
+     8→import { executeRun } from "@/lib/pipeline";
+     9→import { Button } from "@/components/ui/button";
+    10→import { Input } from "@/components/ui/input";
+    11→import { Label } from "@/components/ui/label";
+    12→import { Slider } from "@/components/ui/slider";
+    13→import { Switch } from "@/components/ui/switch";
+    14→import {
+    15→  Select,
+    16→  SelectContent,
+    17→  SelectItem,
+    18→  SelectTrigger,
+    19→  SelectValue,
+    20→} from "@/components/ui/select";
+    21→import { PageThumbs } from "./page-thumbs";
+    22→import { formatBytes } from "@/lib/format";
+    23→import { toast } from "sonner";
+    24→import {
+    25→  ArrowLeft,
+    26→  Play,
+    27→  Plus,
+    28→  X,
+    29→  FileText,
+    30→  Loader2,
+    31→  Eye,
+    32→} from "lucide-react";
+    33→
+    34→/* ---------- per-tool option state ---------- */
+    35→
+    36→interface Options {
+    37→  // split
+    38→  splitMode: "ranges" | "fixed" | "extract";
+    39→  ranges: string;
+    40→  everyN: number;
+    41→  splitSelected: Set<number>;
+    42→  // compress
+    43→  level: "low" | "medium" | "high";
+    44→  // rotate
+    45→  angle: 90 | 180 | 270;
+    46→  // pdf-to-jpg
+    47→  jpgScale: 1 | 2 | 3;
+    48→  // jpg-to-pdf
+    49→  pageSize: "fit" | "a4" | "letter";
+    50→  margin: number;
+    51→  orientation: "auto" | "portrait" | "landscape";
+    52→  // word-to-pdf
+    53→  docPageSize: "a4" | "letter";
+    54→  // watermark
+    55→  wmText: string;
+    56→  wmSize: number;
+    57→  wmColor: string;
+    58→  wmOpacity: number;
+    59→  wmRotation: number;
+    60→  wmPosition: "center" | "diagonal" | "tile" | "footer" | "header";
+    61→  wmBold: boolean;
+    62→  // page numbers
+    63→  pnFormat: "n" | "page_n" | "n_of_total";
+    64→  pnPosition:
+    65→    | "bottom-center"
+    66→    | "bottom-right"
+    67→    | "bottom-left"
+    68→    | "top-center"
+    69→    | "top-right"
+    70→    | "top-left";
+    71→  pnStart: number;
+    72→  pnSize: number;
+    73→  pnSkipFirst: boolean;
+    74→  // crop
+    75→  cropTop: number;
+    76→  cropRight: number;
+    77→  cropBottom: number;
+    78→  cropLeft: number;
+    79→  // protect / unlock
+    80→  password: string;
+    81→  confirm: string;
+    82→  // organize
+    83→  order: number[];
+    84→  rotations: Record<number, number>;
+    85→  organizeDeleted: Set<number>;
+    86→}
+    87→
+    88→const defaultOptions = (): Options => ({
+    89→  splitMode: "extract",
+    90→  ranges: "1-3, 5",
+    91→  everyN: 2,
+    92→  splitSelected: new Set(),
+    93→  level: "medium",
+    94→  angle: 90,
+    95→  jpgScale: 2,
+    96→  pageSize: "a4",
+    97→  margin: 24,
+    98→  orientation: "auto",
+    99→  docPageSize: "a4",
+   100→  wmText: "CONFIDENTIAL",
+   101→  wmSize: 48,
+   102→  wmColor: "#EF4444",
+   103→  wmOpacity: 0.3,
+   104→  wmRotation: 45,
+   105→  wmPosition: "diagonal",
+   106→  wmBold: true,
+   107→  pnFormat: "n",
+   108→  pnPosition: "bottom-center",
+   109→  pnStart: 1,
+   110→  pnSize: 11,
+   111→  pnSkipFirst: false,
+   112→  cropTop: 5,
+   113→  cropRight: 5,
+   114→  cropBottom: 5,
+   115→  cropLeft: 5,
+   116→  password: "",
+   117→  confirm: "",
+   118→  order: [],
+   119→  rotations: {},
+   120→  organizeDeleted: new Set(),
+   121→});
+   122→
+   123→/* ---------- main component ---------- */
+   124→
+   125→export function Workspace() {
+   126→  const toolId = useStore((s) => s.toolId)!;
+   127→  const tool = toolById(toolId);
+   128→  const files = useStore((s) => s.files);
+   129→  const addFiles = useStore((s) => s.addFiles);
+   130→  const removeFile = useStore((s) => s.removeFile);
+   131→  const goHome = useStore((s) => s.goHome);
+   132→  const setView = useStore((s) => s.setView);
+   133→  const setJobs = useStore((s) => s.setJobs);
+   134→  const updateJob = useStore((s) => s.updateJob);
+   135→  const setResults = useStore((s) => s.setResults);
+   136→  const setStats = useStore((s) => s.setStats);
+   137→
+   138→  const [opts, setOpts] = useState<Options>(defaultOptions);
+   139→  const [running, setRunning] = useState(false);
+   140→  const [dragOver, setDragOver] = useState(false);
+   141→  const inputRef = useRef<HTMLInputElement>(null);
+   142→
+   143→  const set = <K extends keyof Options>(key: K, value: Options[K]) =>
+   144→    setOpts((o) => ({ ...o, [key]: value }));
+   145→
+   146→  const canRun = useMemo(() => {
+   147→    if (!tool) return false;
+   148→    if (files.length < tool.minFiles) return false;
+   149→    if (tool.id === "watermark" && !opts.wmText.trim()) return false;
+   150→    if (tool.id === "protect" && opts.password.length < 4) return false;
+   151→    if (tool.id === "protect" && opts.password !== opts.confirm) return false;
+   152→    if (tool.id === "unlock" && !opts.password) return false;
+   153→    if (tool.id === "split") {
+   154→      if (opts.splitMode === "ranges" && !opts.ranges.trim()) return false;
+   155→      if (opts.splitMode === "extract" && opts.splitSelected.size === 0)
+   156→        return false;
+   157→    }
+   158→    if (tool.id === "organize" && files.length === 1) {
+   159→      // allowed with any kept pages; engine validates
+   160→    }
+   161→    return true;
+   162→  }, [tool, files, opts]);
+   163→
+   164→  const onRun = useCallback(async () => {
+   165→    if (!tool || !canRun || running) return;
+   166→    setRunning(true);
+   167→    const es = entries(files);
+   168→    await executeRun(tool.id, es, buildOptions(tool.id, opts));
+   169→    setRunning(false);
+   170→  }, [canRun, running, files, opts, tool]);
+   171→
+   172→  if (!tool) return null;
+   173→
+   174→  const panel = <OptionsPanel toolId={tool.id} opts={opts} set={set} files={files} />;
+   175→
+   176→  return (
+   177→    <section className="mx-auto max-w-6xl px-4 pb-16 pt-6 sm:px-6">
+   178→      {/* tool header */}
+   179→      <div className="mb-6 flex items-center gap-3">
+   180→        <Button
+   181→          variant="ghost"
+   182→          size="icon"
+   183→          onClick={goHome}
+   184→          className="h-9 w-9 rounded-full"
+   185→          aria-label="Back to home"
+   186→        >
+   187→          <ArrowLeft className="h-4 w-4" />
+   188→        </Button>
+   189→        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10">
+   190→          <tool.icon className="h-5 w-5 text-primary" />
+   191→        </div>
+   192→        <div>
+   193→          <h1 className="text-lg font-bold tracking-tight sm:text-xl">{tool.name}</h1>
+   194→          <p className="text-xs text-muted-foreground sm:text-sm">{tool.description}</p>
+   195→        </div>
+   196→      </div>
+   197→
+   198→      <div className="flex flex-col gap-5 lg:flex-row lg:gap-6">
+   199→        {/* left: files */}
+   200→        <div className="w-full shrink-0 lg:w-[340px]">
+   201→          <div className="rounded-2xl border bg-card p-4 shadow-sm">
+   202→            <div className="mb-3 flex items-center justify-between">
+   203→              <p className="text-sm font-semibold">
+   204→                Files
+   205→                <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+   206→                  {files.length}
+   207→                  {tool.maxFiles < 100 ? `/${tool.maxFiles}` : ""}
+   208→                </span>
+   209→              </p>
+   210→              {files.length > 0 && (
+   211→                <button
+   212→                  onClick={() => files.forEach((f) => removeFile(f.id))}
+   213→                  className="text-xs font-medium text-muted-foreground hover:text-destructive"
+   214→                >
+   215→                  Clear
+   216→                </button>
+   217→              )}
+   218→            </div>
+   219→
+   220→            {files.length === 0 ? (
+   221→              <button
+   222→                onClick={() => inputRef.current?.click()}
+   223→                onDragOver={(e) => {
+   224→                  e.preventDefault();
+   225→                  setDragOver(true);
+   226→                }}
+   227→                onDragLeave={() => setDragOver(false)}
+   228→                onDrop={(e) => {
+   229→                  e.preventDefault();
+   230→                  setDragOver(false);
+   231→                  const list = Array.from(e.dataTransfer.files || []);
+   232→                  if (list.length) addFiles(list);
+   233→                }}
+   234→                className={`flex h-36 w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed text-center transition ${
+   235→                  dragOver
+   236→                    ? "border-primary bg-primary/[0.06]"
+   237→                    : "border-border hover:border-primary/40 hover:bg-primary/[0.03]"
+   238→                }`}
+   239→              >
+   240→                <Plus className="h-6 w-6 text-primary" />
+   241→                <span className="text-xs font-medium text-muted-foreground">
+   242→                  Drop {tool.input === "image" ? "images" : tool.input === "docx" ? ".docx files" : "PDF files"} or click
+   243→                </span>
+   244→              </button>
+   245→            ) : (
+   246→              <div className="max-h-[320px] space-y-2 overflow-y-auto pr-1 [scrollbar-width:thin]">
+   247→                {files.map((f) => (
+   248→                  <div
+   249→                    key={f.id}
+   250→                    className="group flex items-center gap-2.5 rounded-xl border bg-background p-2.5"
+   251→                  >
+   252→                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+   253→                      <FileText className="h-4 w-4 text-primary" />
+   254→                    </div>
+   255→                    <div className="min-w-0 flex-1">
+   256→                      <p className="truncate text-xs font-semibold">{f.name}</p>
+   257→                      <p className="text-[11px] text-muted-foreground">
+   258→                        {formatBytes(f.size)}
+   259→                      </p>
+   260→                    </div>
+   261→                    <button
+   262→                      onClick={() => removeFile(f.id)}
+   263→                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive"
+   264→                      aria-label={`Remove ${f.name}`}
+   265→                    >
+   266→                      <X className="h-3.5 w-3.5" />
+   267→                    </button>
+   268→                  </div>
+   269→                ))}
+   270→                {files.length < tool.maxFiles && (
+   271→                  <button
+   272→                    onClick={() => inputRef.current?.click()}
+   273→                    className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed py-2.5 text-xs font-medium text-muted-foreground transition hover:border-primary/40 hover:text-primary"
+   274→                  >
+   275→                    <Plus className="h-3.5 w-3.5" /> Add more
+   276→                  </button>
+   277→                )}
+   278→              </div>
+   279→            )}
+   280→            <input
+   281→              ref={inputRef}
+   282→              type="file"
+   283→              multiple
+   284→              accept={tool.accept}
+   285→              className="hidden"
+   286→              onChange={(e) => {
+   287→                const list = Array.from(e.target.files || []);
+   288→                if (list.length) {
+   289→                  const { rejected } = addFiles(list);
+   290→                  if (rejected > 0)
+   291→                    toast.warning(
+   292→                      `${rejected} file(s) skipped — wrong type for ${tool.name}`
+   293→                    );
+   294→                }
+   295→                e.target.value = "";
+   296→              }}
+   297→            />
+   298→          </div>
+   299→
+   300→          {/* privacy note */}
+   301→          <div className="mt-3 flex items-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.06] px-3 py-2.5">
+   302→            <Eye className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+   303→            <p className="text-[11px] leading-snug text-emerald-800 dark:text-emerald-300">
+   304→              Processing happens <b>on this device</b>. Nothing is uploaded.
+   305→            </p>
+   306→          </div>
+   307→        </div>
+   308→
+   309→        {/* right: options */}
+   310→        <div className="min-w-0 flex-1">
+   311→          <div className="rounded-2xl border bg-card p-4 shadow-sm sm:p-5">
+   312→            <p className="mb-4 text-sm font-semibold">Options</p>
+   313→            {panel}
+   314→          </div>
+   315→
+   316→          <Button
+   317→            onClick={onRun}
+   318→            disabled={!canRun || running}
+   319→            className="mt-4 h-13 w-full rounded-xl text-base font-bold shadow-md shadow-primary/20 transition-all hover:shadow-lg hover:shadow-primary/30 disabled:opacity-40 sm:h-14 sm:text-lg"
+   320→            size="lg"
+   321→          >
+   322→            {running ? (
+   323→              <>
+   324→                <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Working…
+   325→              </>
+   326→            ) : (
+   327→              <>
+   328→                <Play className="mr-2 h-5 w-5 fill-current" />
+   329→                {tool.zeroOption ? `Run ${tool.name}` : `Run ${tool.name}`}
+   330→              </>
+   331→            )}
+   332→          </Button>
+   333→          {!canRun && files.length > 0 && (
+   334→            <p className="mt-2 text-center text-xs text-muted-foreground">
+   335→              {hint(toolId, opts, files)}
+   336→            </p>
+   337→          )}
+   338→        </div>
+   339→      </div>
+   340→
+   341→      <motion.div
+   342→        initial={{ opacity: 0 }}
+   343→        animate={{ opacity: 1 }}
+   344→        className="mt-6 hidden justify-center text-[11px] text-muted-foreground/70 sm:flex"
+   345→      >
+   346→        Works offline · No watermark added by us · Free forever
+   347→      </motion.div>
+   348→    </section>
+   349→  );
+   350→}
+   351→
+   352→function entries(files: StoreFile[]) {
+   353→  return files.map((f) => ({ id: f.id, file: f.file }));
+   354→}
+   355→
+   356→function buildOptions(
+   357→  toolId: string,
+   358→  opts: Options
+   359→): Record<string, unknown> {
+   360→  switch (toolId) {
+   361→    case "split":
+   362→      return {
+   363→        mode: opts.splitMode,
+   364→        ranges: opts.ranges,
+   365→        everyN: opts.everyN,
+   366→        selectedPages: [...opts.splitSelected],
+   367→      };
+   368→    case "compress":
+   369→      return { level: opts.level };
+   370→    case "rotate":
+   371→      return { angle: opts.angle };
+   372→    case "pdf-to-jpg":
+   373→      return { scale: opts.jpgScale };
+   374→    case "jpg-to-pdf":
+   375→      return {
+   376→        pageSize: opts.pageSize,
+   377→        margin: opts.margin,
+   378→        orientation: opts.orientation,
+   379→      };
+   380→    case "word-to-pdf":
+   381→      return { pageSize: opts.docPageSize };
+   382→    case "watermark":
+   383→      return {
+   384→        text: opts.wmText,
+   385→        fontSize: opts.wmSize,
+   386→        color: opts.wmColor,
+   387→        opacity: opts.wmOpacity,
+   388→        rotation: opts.wmRotation,
+   389→        position: opts.wmPosition,
+   390→        bold: opts.wmBold,
+   391→      };
+   392→    case "page-numbers":
+   393→      return {
+   394→        format: opts.pnFormat,
+   395→        position: opts.pnPosition,
+   396→        startAt: opts.pnStart,
+   397→        fontSize: opts.pnSize,
+   398→        skipFirst: opts.pnSkipFirst,
+   399→      };
+   400→    case "crop":
+   401→      return {
+   402→        top: opts.cropTop,
+   403→        right: opts.cropRight,
+   404→        bottom: opts.cropBottom,
+   405→        left: opts.cropLeft,
+   406→      };
+   407→    case "protect":
+   408→      return { password: opts.password, confirm: opts.confirm };
+   409→    case "unlock":
+   410→      return { password: opts.password };
+   411→    case "organize":
+   412→      return {
+   413→        order: opts.order.filter((p) => !opts.organizeDeleted.has(p)),
+   414→        rotations: opts.rotations,
+   415→      };
+   416→    default:
+   417→      return {};
+   418→  }
+   419→}
+   420→
+   421→function hint(toolId: string, opts: Options, files: StoreFile[]): string {
+   422→  const tool = toolById(toolId);
+   423→  if (!tool) return "";
+   424→  if (files.length < tool.minFiles)
+   425→    return `Add ${tool.minFiles === 1 ? "a file" : `at least ${tool.minFiles} files`} to continue`;
+   426→  if (toolId === "watermark" && !opts.wmText.trim()) return "Enter watermark text";
+   427→  if (toolId === "protect" && opts.password.length < 4)
+   428→    return "Password needs at least 4 characters";
+   429→  if (toolId === "protect" && opts.password !== opts.confirm)
+   430→    return "Passwords do not match";
+   431→  if (toolId === "split") {
+   432→    if (opts.splitMode === "ranges" && !opts.ranges.trim())
+   433→      return "Enter page ranges like 1-3, 5";
+   434→    if (opts.splitMode === "extract" && opts.splitSelected.size === 0)
+   435→      return "Select at least one page below";
+   436→  }
+   437→  return "";
+   438→}
+   439→
+   440→/* ---------- options panel ---------- */
+   441→
+   442→function OptionsPanel({
+   443→  toolId,
+   444→  opts,
+   445→  set,
+   446→  files,
+   447→}: {
+   448→  toolId: string;
+   449→  opts: Options;
+   450→  set: <K extends keyof Options>(k: K, v: Options[K]) => void;
+   451→  files: StoreFile[];
+   452→}) {
+   453→  switch (toolId) {
+   454→    case "merge":
+   455→      return (
+   456→        <p className="rounded-xl bg-primary/[0.04] p-3 text-xs text-muted-foreground">
+   457→          Files merge in the order listed. Add more files any time — one click
+   458→          and they become a single PDF.
+   459→        </p>
+   460→      );
+   461→
+   462→    case "split":
+   463→      return (
+   464→        <div className="space-y-4">
+   465→          <SegButtons
+   466→            value={opts.splitMode}
+   467→            onChange={(v) => set("splitMode", v as Options["splitMode"])}
+   468→            options={[
+   469→              { v: "extract", label: "Select pages" },
+   470→              { v: "ranges", label: "By ranges" },
+   471→              { v: "fixed", label: "Every N pages" },
+   472→            ]}
+   473→          />
+   474→          {opts.splitMode === "ranges" && (
+   475→            <div>
+   476→              <Label className="mb-1.5 block text-xs font-medium">
+   477→                Ranges (comma separated)
+   478→              </Label>
+   479→              <Input
+   480→                value={opts.ranges}
+   481→                onChange={(e) => set("ranges", e.target.value)}
+   482→                placeholder="1-3, 5, 8-10"
+   483→                className="rounded-xl"
+   484→              />
+   485→              <p className="mt-1.5 text-[11px] text-muted-foreground">
+   486→                Each range or page becomes its own PDF file.
+   487→              </p>
+   488→            </div>
+   489→          )}
+   490→          {opts.splitMode === "fixed" && (
+   491→            <div>
+   492→              <Label className="mb-1.5 block text-xs font-medium">
+   493→                Split every
+   494→              </Label>
+   495→              <div className="flex items-center gap-3">
+   496→                <Slider
+   497→                  min={1}
+   498→                  max={20}
+   499→                  step={1}
+   500→                  value={[opts.everyN]}
+   501→                  onValueChange={([v]) => set("everyN", v)}
+   502→                  className="flex-1"
+   503→                />
+   504→                <span className="w-16 text-right text-sm font-semibold">
+   505→                  {opts.everyN} page{opts.everyN > 1 ? "s" : ""}
+   506→                </span>
+   507→              </div>
+   508→            </div>
+   509→          )}
+   510→          {opts.splitMode === "extract" && files[0] && (
+   511→            <div>
+   512→              <Label className="mb-2 block text-xs font-medium">
+   513→                Click pages to include ({opts.splitSelected.size} selected)
+   514→              </Label>
+   515→              <PageThumbs
+   516→                file={files[0].file}
+   517→                selected={opts.splitSelected}
+   518→                onToggle={(p) => {
+   519→                  const next = new Set(opts.splitSelected);
+   520→                  if (next.has(p)) next.delete(p);
+   521→                  else next.add(p);
+   522→                  set("splitSelected", next);
+   523→                }}
+   524→              />
+   525→            </div>
+   526→          )}
+   527→        </div>
+   528→      );
+   529→
+   530→    case "compress":
+   531→      return (
+   532→        <div className="space-y-2.5">
+   533→          {(
+   534→            [
+   535→              { v: "low", t: "Extreme compression", d: "Smallest size, lower quality" },
+   536→              { v: "medium", t: "Recommended compression", d: "Good balance of size and quality" },
+   537→              { v: "high", t: "Light compression", d: "Best quality, moderate savings" },
+   538→            ] as const
+   539→          ).map((o) => (
+   540→            <button
+   541→              key={o.v}
+   542→              onClick={() => set("level", o.v)}
+   543→              className={`flex w-full items-center gap-3 rounded-xl border p-3.5 text-left transition ${
+   544→                opts.level === o.v
+   545→                  ? "border-primary bg-primary/[0.05] shadow-sm"
+   546→                  : "hover:border-primary/30"
+   547→              }`}
+   548→            >
+   549→              <span
+   550→                className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${
+   551→                  opts.level === o.v
+   552→                    ? "border-primary bg-primary"
+   553→                    : "border-muted-foreground/40"
+   554→                }`}
+   555→              >
+   556→                {opts.level === o.v && (
+   557→                  <span className="h-1.5 w-1.5 rounded-full bg-white" />
+   558→                )}
+   559→              </span>
+   560→              <span>
+   561→                <span className="block text-sm font-semibold">{o.t}</span>
+   562→                <span className="block text-xs text-muted-foreground">{o.d}</span>
+   563→              </span>
+   564→            </button>
+   565→          ))}
+   566→          <p className="pt-1 text-[11px] text-muted-foreground">
+   567→            SwiftPDF tries both a lossless re-save and smart re-encoding, then
+   568→            keeps whichever is smaller.
+   569→          </p>
+   570→        </div>
+   571→      );
+   572→
+   573→    case "organize":
+   574→      return (
+   575→        <div className="space-y-4">
+   576→          <p className="text-xs text-muted-foreground">
+   577→            Click ✓ to remove a page · drag cards to reorder · ↻ rotates a page
+   578→          </p>
+   579→          {files[0] && (
+   580→            <PageThumbs
+   581→              file={files[0].file}
+   582→              selected={opts.organizeDeleted}
+   583→              onToggle={(p) => {
+   584→                const next = new Set(opts.organizeDeleted);
+   585→                if (next.has(p)) next.delete(p);
+   586→                else next.add(p);
+   587→                set("organizeDeleted", next);
+   588→              }}
+   589→              onReorder={(order) => set("order", order)}
+   590→              onRotate={(p) => {
+   591→                const next = { ...opts.rotations };
+   592→                next[p] = ((next[p] ?? 0) + 90) % 360;
+   593→                set("rotations", next);
+   594→              }}
+   595→              rotations={opts.rotations}
+   596→              deletable
+   597→              selectable
+   598→              reorderable
+   599→              rotatable
+   600→            />
+   601→          )}
+   602→        </div>
+   603→      );
+   604→
+   605→    case "rotate":
+   606→      return (
+   607→        <SegButtons
+   608→          value={String(opts.angle)}
+   609→          onChange={(v) => set("angle", Number(v) as 90 | 180 | 270)}
+   610→          options={[
+   611→            { v: "90", label: "90°" },
+   612→            { v: "180", label: "180°" },
+   613→            { v: "270", label: "270°" },
+   614→          ]}
+   615→        />
+   616→      );
+   617→
+   618→    case "pdf-to-jpg":
+   619→      return (
+   620→        <SegButtons
+   621→          value={String(opts.jpgScale)}
+   622→          onChange={(v) => set("jpgScale", Number(v) as 1 | 2 | 3)}
+   623→          options={[
+   624→            { v: "1", label: "Standard · 72 DPI" },
+   625→            { v: "2", label: "High · 144 DPI" },
+   626→            { v: "3", label: "Max · 216 DPI" },
+   627→          ]}
+   628→        />
+   629→      );
+   630→
+   631→    case "jpg-to-pdf":
+   632→      return (
+   633→        <div className="space-y-4">
+   634→          <TwoCol>
+   635→            <div>
+   636→              <Label className="mb-1.5 block text-xs font-medium">Page size</Label>
+   637→              <Select
+   638→                value={opts.pageSize}
+   639→                onValueChange={(v) => set("pageSize", v as Options["pageSize"])}
+   640→              >
+   641→                <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+   642→                <SelectContent>
+   643→                  <SelectItem value="fit">Fit to image</SelectItem>
+   644→                  <SelectItem value="a4">A4</SelectItem>
+   645→                  <SelectItem value="letter">US Letter</SelectItem>
+   646→                </SelectContent>
+   647→              </Select>
+   648→            </div>
+   649→            <div>
+   650→              <Label className="mb-1.5 block text-xs font-medium">Orientation</Label>
+   651→              <Select
+   652→                value={opts.orientation}
+   653→                onValueChange={(v) => set("orientation", v as Options["orientation"])}
+   654→                disabled={opts.pageSize === "fit"}
+   655→              >
+   656→                <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+   657→                <SelectContent>
+   658→                  <SelectItem value="auto">Auto</SelectItem>
+   659→                  <SelectItem value="portrait">Portrait</SelectItem>
+   660→                  <SelectItem value="landscape">Landscape</SelectItem>
+   661→                </SelectContent>
+   662→              </Select>
+   663→            </div>
+   664→          </TwoCol>
+   665→          <div>
+   666→            <Label className="mb-1.5 block text-xs font-medium">Margin</Label>
+   667→            <div className="flex items-center gap-3">
+   668→              <Slider
+   669→                min={0}
+   670→                max={72}
+   671→                step={4}
+   672→                value={[opts.margin]}
+   673→                onValueChange={([v]) => set("margin", v)}
+   674→                className="flex-1"
+   675→              />
+   676→              <span className="w-14 text-right text-sm font-semibold">{opts.margin}pt</span>
+   677→            </div>
+   678→          </div>
+   679→        </div>
+   680→      );
+   681→
+   682→    case "pdf-to-word":
+   683→    case "pdf-to-excel":
+   684→      return (
+   685→        <p className="rounded-xl bg-primary/[0.04] p-3 text-xs text-muted-foreground">
+   686→          Text is extracted into a fully editable file. Scanned PDFs contain
+   687→          images only — for those, use PDF to JPG or an OCR tool.
+   688→        </p>
+   689→      );
+   690→
+   691→    case "pdf-to-ppt":
+   692→      return (
+   693→        <p className="rounded-xl bg-primary/[0.04] p-3 text-xs text-muted-foreground">
+   694→          Each PDF page is rendered at high resolution and placed as a
+   695→          full-bleed slide image in a 16:9 PowerPoint file.
+   696→        </p>
+   697→      );
+   698→
+   699→    case "word-to-pdf":
+   700→      return (
+   701→        <div>
+   702→          <Label className="mb-1.5 block text-xs font-medium">Page size</Label>
+   703→          <Select
+   704→            value={opts.docPageSize}
+   705→            onValueChange={(v) => set("docPageSize", v as Options["docPageSize"])}
+   706→          >
+   707→            <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+   708→            <SelectContent>
+   709→              <SelectItem value="a4">A4</SelectItem>
+   710→              <SelectItem value="letter">US Letter</SelectItem>
+   711→            </SelectContent>
+   712→          </Select>
+   713→        </div>
+   714→      );
+   715→
+   716→    case "watermark":
+   717→      return <WatermarkOptions opts={opts} set={set} files={files} />;
+   718→
+   719→    case "page-numbers":
+   720→      return (
+   721→        <div className="space-y-4">
+   722→          <TwoCol>
+   723→            <div>
+   724→              <Label className="mb-1.5 block text-xs font-medium">Format</Label>
+   725→              <Select
+   726→                value={opts.pnFormat}
+   727→                onValueChange={(v) => set("pnFormat", v as Options["pnFormat"])}
+   728→              >
+   729→                <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+   730→                <SelectContent>
+   731→                  <SelectItem value="n">1, 2, 3…</SelectItem>
+   732→                  <SelectItem value="page_n">Page 1, Page 2…</SelectItem>
+   733→                  <SelectItem value="n_of_total">1 / 10</SelectItem>
+   734→                </SelectContent>
+   735→              </Select>
+   736→            </div>
+   737→            <div>
+   738→              <Label className="mb-1.5 block text-xs font-medium">Position</Label>
+   739→              <Select
+   740→                value={opts.pnPosition}
+   741→                onValueChange={(v) => set("pnPosition", v as Options["pnPosition"])}
+   742→              >
+   743→                <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+   744→                <SelectContent>
+   745→                  <SelectItem value="bottom-center">Bottom center</SelectItem>
+   746→                  <SelectItem value="bottom-right">Bottom right</SelectItem>
+   747→                  <SelectItem value="bottom-left">Bottom left</SelectItem>
+   748→                  <SelectItem value="top-center">Top center</SelectItem>
+   749→                  <SelectItem value="top-right">Top right</SelectItem>
+   750→                  <SelectItem value="top-left">Top left</SelectItem>
+   751→                </SelectContent>
+   752→              </Select>
+   753→            </div>
+   754→          </TwoCol>
+   755→          <div>
+   756→            <Label className="mb-1.5 block text-xs font-medium">
+   757→              Start numbering at
+   758→            </Label>
+   759→            <Input
+   760→              type="number"
+   761→              min={1}
+   762→              value={opts.pnStart}
+   763→              onChange={(e) => set("pnStart", Math.max(1, Number(e.target.value) || 1))}
+   764→              className="w-28 rounded-xl"
+   765→            />
+   766→          </div>
+   767→          <div>
+   768→            <Label className="mb-1.5 block text-xs font-medium">Font size</Label>
+   769→            <div className="flex items-center gap-3">
+   770→              <Slider
+   771→                min={7}
+   772→                max={24}
+   773→                step={1}
+   774→                value={[opts.pnSize]}
+   775→                onValueChange={([v]) => set("pnSize", v)}
+   776→                className="flex-1"
+   777→              />
+   778→              <span className="w-14 text-right text-sm font-semibold">{opts.pnSize}pt</span>
+   779→            </div>
+   780→          </div>
+   781→          <div className="flex items-center justify-between rounded-xl border p-3">
+   782→            <Label className="text-xs font-medium">Skip first page (cover)</Label>
+   783→            <Switch
+   784→              checked={opts.pnSkipFirst}
+   785→              onCheckedChange={(v) => set("pnSkipFirst", v)}
+   786→            />
+   787→          </div>
+   788→        </div>
+   789→      );
+   790→
+   791→    case "crop":
+   792→      return <CropOptions opts={opts} set={set} files={files} />;
+   793→
+   794→    case "protect":
+   795→      return (
+   796→        <div className="space-y-4">
+   797→          <div>
+   798→            <Label className="mb-1.5 block text-xs font-medium">Password</Label>
+   799→            <Input
+   800→              type="password"
+   801→              value={opts.password}
+   802→              onChange={(e) => set("password", e.target.value)}
+   803→              placeholder="At least 4 characters"
+   804→              className="rounded-xl"
+   805→            />
+   806→          </div>
+   807→          <div>
+   808→            <Label className="mb-1.5 block text-xs font-medium">
+   809→              Confirm password
+   810→            </Label>
+   811→            <Input
+   812→              type="password"
+   813→              value={opts.confirm}
+   814→              onChange={(e) => set("confirm", e.target.value)}
+   815→              placeholder="Repeat password"
+   816→              className="rounded-xl"
+   817→            />
+   818→            {opts.confirm && opts.password !== opts.confirm && (
+   819→              <p className="mt-1.5 text-xs text-destructive">
+   820→                Passwords do not match
+   821→              </p>
+   822→            )}
+   823→          </div>
+   824→          <p className="text-[11px] text-muted-foreground">
+   825→            Standard PDF encryption — opens in Adobe, Preview, browsers. We
+   826→            cannot recover a lost password.
+   827→          </p>
+   828→        </div>
+   829→      );
+   830→
+   831→    case "unlock":
+   832→      return (
+   833→        <div>
+   834→          <Label className="mb-1.5 block text-xs font-medium">
+   835→            Current password
+   836→          </Label>
+   837→          <Input
+   838→            type="password"
+   839→            value={opts.password}
+   840→            onChange={(e) => set("password", e.target.value)}
+   841→            placeholder="The password you already know"
+   842→            className="rounded-xl"
+   843→          />
+   844→          <p className="mt-2 text-[11px] text-muted-foreground">
+   845→            This removes the password from the saved copy — use it only on
+   846→            files you own.
+   847→          </p>
+   848→        </div>
+   849→      );
+   850→
+   851→    default:
+   852→      return null;
+   853→  }
+   854→}
+   855→
+   856→/* ---------- watermark with live preview ---------- */
+   857→
+   858→function WatermarkOptions({
+   859→  opts,
+   860→  set,
+   861→  files,
+   862→}: {
+   863→  opts: Options;
+   864→  set: <K extends keyof Options>(k: K, v: Options[K]) => void;
+   865→  files: StoreFile[];
+   866→}) {
+   867→  const [preview, setPreview] = useState<string | null>(null);
+   868→
+   869→  useEffect(() => {
+   870→    if (!files[0]) return;
+   871→    let alive = true;
+   872→    firstPagePreview(files[0].file, 0.9)
+   873→      .then((p) => alive && setPreview(p.dataUrl))
+   874→      .catch(() => {});
+   875→    return () => {
+   876→      alive = false;
+   877→    };
+   878→  }, [files]);
+   879→
+   880→  return (
+   881→    <div className="space-y-4">
+   882→      <div>
+   883→        <Label className="mb-1.5 block text-xs font-medium">Text</Label>
+   884→        <Input
+   885→          value={opts.wmText}
+   886→          onChange={(e) => set("wmText", e.target.value)}
+   887→          placeholder="CONFIDENTIAL, DRAFT, company name…"
+   888→          className="rounded-xl"
+   889→        />
+   890→      </div>
+   891→
+   892→      {preview && (
+   893→        <div className="relative mx-auto max-w-sm overflow-hidden rounded-xl border shadow-sm">
+   894→          
+   895→          <img src={preview} alt="Watermark preview" className="block w-full" />
+   896→          <WatermarkOverlay opts={opts} />
+   897→        </div>
+   898→      )}
+   899→
+   900→      <TwoCol>
+   901→        <div>
+   902→          <Label className="mb-1.5 block text-xs font-medium">Layout</Label>
+   903→          <Select
+   904→            value={opts.wmPosition}
+   905→            onValueChange={(v) => set("wmPosition", v as Options["wmPosition"])}
+   906→          >
+   907→            <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+   908→            <SelectContent>
+   909→              <SelectItem value="diagonal">Diagonal</SelectItem>
+   910→              <SelectItem value="center">Center</SelectItem>
+   911→              <SelectItem value="tile">Tiled</SelectItem>
+   912→              <SelectItem value="footer">Footer</SelectItem>
+   913→              <SelectItem value="header">Header</SelectItem>
+   914→            </SelectContent>
+   915→          </Select>
+   916→        </div>
+   917→        <div>
+   918→          <Label className="mb-1.5 block text-xs font-medium">Color</Label>
+   919→          <div className="flex items-center gap-2">
+   920→            <input
+   921→              type="color"
+   922→              value={opts.wmColor}
+   923→              onChange={(e) => set("wmColor", e.target.value)}
+   924→              className="h-10 w-12 cursor-pointer rounded-lg border bg-card p-1"
+   925→              aria-label="Watermark color"
+   926→            />
+   927→            <span className="text-xs font-mono text-muted-foreground">
+   928→              {opts.wmColor}
+   929→            </span>
+   930→          </div>
+   931→        </div>
+   932→      </TwoCol>
+   933→
+   934→      <div>
+   935→        <Label className="mb-1.5 block text-xs font-medium">
+   936→          Size · {opts.wmSize}pt
+   937→        </Label>
+   938→        <Slider
+   939→          min={16}
+   940→          max={120}
+   941→          step={2}
+   942→          value={[opts.wmSize]}
+   943→          onValueChange={([v]) => set("wmSize", v)}
+   944→        />
+   945→      </div>
+   946→      <div>
+   947→        <Label className="mb-1.5 block text-xs font-medium">
+   948→          Opacity · {Math.round(opts.wmOpacity * 100)}%
+   949→        </Label>
+   950→        <Slider
+   951→          min={5}
+   952→          max={80}
+   953→          step={5}
+   954→          value={[Math.round(opts.wmOpacity * 100)]}
+   955→          onValueChange={([v]) => set("wmOpacity", v / 100)}
+   956→        />
+   957→      </div>
+   958→      <div>
+   959→        <Label className="mb-1.5 block text-xs font-medium">
+   960→          Rotation · {opts.wmRotation}°
+   961→        </Label>
+   962→        <Slider
+   963→          min={0}
+   964→          max={90}
+   965→          step={5}
+   966→          value={[opts.wmRotation]}
+   967→          onValueChange={([v]) => set("wmRotation", v)}
+   968→        />
+   969→      </div>
+   970→      <div className="flex items-center justify-between rounded-xl border p-3">
+   971→        <Label className="text-xs font-medium">Bold text</Label>
+   972→        <Switch
+   973→          checked={opts.wmBold}
+   974→          onCheckedChange={(v) => set("wmBold", v)}
+   975→        />
+   976→      </div>
+   977→    </div>
+   978→  );
+   979→}
+   980→
+   981→function WatermarkOverlay({ opts }: { opts: Options }) {
+   982→  const style: React.CSSProperties = {
+   983→    color: opts.wmColor,
+   984→    opacity: opts.wmOpacity,
+   985→    fontSize: `${Math.max(8, opts.wmSize / 4)}px`,
+   986→    fontWeight: opts.wmBold ? 800 : 400,
+   987→    transform: `rotate(${opts.wmPosition === "header" || opts.wmPosition === "footer" || opts.wmPosition === "center" ? 0 : opts.wmRotation}deg)`,
+   988→    letterSpacing: "0.02em",
+   989→    whiteSpace: "nowrap",
+   990→    pointerEvents: "none",
+   991→  };
+   992→  if (opts.wmPosition === "tile") {
+   993→    return (
+   994→      <div className="absolute inset-0 overflow-hidden">
+   995→        {[15, 45, 75].map((t) => (
+   996→          <span
+   997→            key={t}
+   998→            style={{ ...style, position: "absolute", left: `${t - 20}%`, top: `${t}%` }}
+   999→          >
+  1000→            {opts.wmText}
+  1001→          </span>
+  1002→        ))}
+  1003→      </div>
+  1004→    );
+  1005→  }
+  1006→  if (opts.wmPosition === "footer")
+  1007→    return (
+  1008→      <span style={{ ...style, position: "absolute", left: "50%", bottom: "6%", transform: "translateX(-50%)" }}>
+  1009→        {opts.wmText}
+  1010→      </span>
+  1011→    );
+  1012→  if (opts.wmPosition === "header")
+  1013→    return (
+  1014→      <span style={{ ...style, position: "absolute", left: "50%", top: "6%", transform: "translateX(-50%)" }}>
+  1015→        {opts.wmText}
+  1016→      </span>
+  1017→    );
+  1018→  if (opts.wmPosition === "center")
+  1019→    return (
+  1020→      <span style={{ ...style, position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}>
+  1021→        {opts.wmText}
+  1022→      </span>
+  1023→    );
+  1024→  return (
+  1025→    <span
+  1026→      style={{ ...style, position: "absolute", left: "18%", top: "46%" }}
+  1027→    >
+  1028→      {opts.wmText}
+  1029→    </span>
+  1030→  );
+  1031→}
+  1032→
+  1033→/* ---------- crop with live preview ---------- */
+  1034→
+  1035→function CropOptions({
+  1036→  opts,
+  1037→  set,
+  1038→  files,
+  1039→}: {
+  1040→  opts: Options;
+  1041→  set: <K extends keyof Options>(k: K, v: Options[K]) => void;
+  1042→  files: StoreFile[];
+  1043→}) {
+  1044→  const [preview, setPreview] = useState<string | null>(null);
+  1045→
+  1046→  useEffect(() => {
+  1047→    if (!files[0]) return;
+  1048→    let alive = true;
+  1049→    firstPagePreview(files[0].file, 0.9)
+  1050→      .then((p) => alive && setPreview(p.dataUrl))
+  1051→      .catch(() => {});
+  1052→    return () => {
+  1053→      alive = false;
+  1054→    };
+  1055→  }, [files]);
+  1056→
+  1057→  const side = (
+  1058→    key: "cropTop" | "cropRight" | "cropBottom" | "cropLeft",
+  1059→    label: string
+  1060→  ) => (
+  1061→    <div>
+  1062→      <Label className="mb-1.5 block text-xs font-medium">
+  1063→        {label} · {opts[key]}%
+  1064→      </Label>
+  1065→      <Slider
+  1066→        min={0}
+  1067→        max={40}
+  1068→        step={1}
+  1069→        value={[opts[key]]}
+  1070→        onValueChange={([v]) => set(key, v)}
+  1071→      />
+  1072→    </div>
+  1073→  );
+  1074→
+  1075→  return (
+  1076→    <div className="space-y-4">
+  1077→      {preview && (
+  1078→        <div className="relative mx-auto max-w-sm overflow-hidden rounded-xl border shadow-sm">
+  1079→          
+  1080→          <img src={preview} alt="Crop preview" className="block w-full" />
+  1081→          <div
+  1082→            className="pointer-events-none absolute inset-0"
+  1083→            style={{
+  1084→              background: "rgba(15,23,42,0.55)",
+  1085→              clipPath: `polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 0, ${opts.cropLeft}% ${opts.cropTop}%, ${opts.cropLeft}% ${100 - opts.cropBottom}%, ${100 - opts.cropRight}% ${100 - opts.cropBottom}%, ${100 - opts.cropRight}% ${opts.cropTop}%, ${opts.cropLeft}% ${opts.cropTop}%)`,
+  1086→            }}
+  1087→          />
+  1088→          <div
+  1089→            className="pointer-events-none absolute border-2 border-dashed border-primary"
+  1090→            style={{
+  1091→              left: `${opts.cropLeft}%`,
+  1092→              top: `${opts.cropTop}%`,
+  1093→              right: `${opts.cropRight}%`,
+  1094→              bottom: `${opts.cropBottom}%`,
+  1095→            }}
+  1096→          />
+  1097→        </div>
+  1098→      )}
+  1099→      <TwoCol>
+  1100→        {side("cropTop", "Top")}
+  1101→        {side("cropRight", "Right")}
+  1102→        {side("cropBottom", "Bottom")}
+  1103→        {side("cropLeft", "Left")}
+  1104→      </TwoCol>
+  1105→    </div>
+  1106→  );
+  1107→}
+  1108→
+  1109→/* ---------- small building blocks ---------- */
+  1110→
+  1111→function SegButtons({
+  1112→  value,
+  1113→  onChange,
+  1114→  options,
+  1115→}: {
+  1116→  value: string;
+  1117→  onChange: (v: string) => void;
+  1118→  options: { v: string; label: string }[];
+  1119→}) {
+  1120→  return (
+  1121→    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+  1122→      {options.map((o) => (
+  1123→        <button
+  1124→          key={o.v}
+  1125→          onClick={() => onChange(o.v)}
+  1126→          className={`rounded-xl border px-3 py-2.5 text-xs font-semibold transition ${
+  1127→            value === o.v
+  1128→              ? "border-primary bg-primary text-primary-foreground shadow-sm"
+  1129→              : "bg-background hover:border-primary/40"
+  1130→          }`}
+  1131→        >
+  1132→          {o.label}
+  1133→        </button>
+  1134→      ))}
+  1135→    </div>
+  1136→  );
+  1137→}
+  1138→
+  1139→function TwoCol({ children }: { children: React.ReactNode }) {
+  1140→  return <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">{children}</div>;
+  1141→}
+  1142→

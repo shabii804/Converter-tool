@@ -1,0 +1,1236 @@
+     1→/**
+     2→ * SwiftPDF Engine — 100% client-side PDF processing.
+     3→ * No file ever leaves the device. All heavy libs are lazy-loaded.
+     4→ */
+     5→
+     6→export interface RunCallbacks {
+     7→  onOverall?: (p: number) => void;
+     8→  onFileProgress?: (fileKey: string, p: number) => void;
+     9→  onStatus?: (msg: string) => void;
+    10→}
+    11→
+    12→export interface EngineResult {
+    13→  files: { name: string; blob: Blob; size: number; kind: string }[];
+    14→  note?: string;
+    15→}
+    16→
+    17→const tick = () => new Promise((r) => setTimeout(r, 0));
+    18→
+    19→/* ---------- lazy loaders ---------- */
+    20→
+    21→async function getPdfjs() {
+    22→  const pdfjs = await import("pdfjs-dist");
+    23→  pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+    24→  return pdfjs;
+    25→}
+    26→
+    27→async function getPdfLib() {
+    28→  return await import("pdf-lib");
+    29→}
+    30→
+    31→async function getCantoo() {
+    32→  return await import("@cantoo/pdf-lib");
+    33→}
+    34→
+    35→/* ---------- shared helpers ---------- */
+    36→
+    37→async function fileToBytes(file: File): Promise<Uint8Array> {
+    38→  const buf = await file.arrayBuffer();
+    39→  return new Uint8Array(buf);
+    40→}
+    41→
+    42→/** Render one pdf.js page to a canvas */
+    43→async function renderPageToCanvas(
+    44→  doc: any,
+    45→  pageNum: number,
+    46→  scale: number
+    47→): Promise<HTMLCanvasElement> {
+    48→  const page = await doc.getPage(pageNum);
+    49→  const viewport = page.getViewport({ scale });
+    50→  const canvas = document.createElement("canvas");
+    51→  canvas.width = Math.max(1, Math.floor(viewport.width));
+    52→  canvas.height = Math.max(1, Math.floor(viewport.height));
+    53→  const ctx = canvas.getContext("2d")!;
+    54→  await page.render({ canvasContext: ctx, viewport } as any).promise;
+    55→  return canvas;
+    56→}
+    57→
+    58→function canvasToBlob(
+    59→  canvas: HTMLCanvasElement,
+    60→  type: string,
+    61→  quality?: number
+    62→): Promise<Blob> {
+    63→  return new Promise((resolve, reject) => {
+    64→    canvas.toBlob(
+    65→      (b) => (b ? resolve(b) : reject(new Error("Canvas export failed"))),
+    66→      type,
+    67→      quality
+    68→    );
+    69→  });
+    70→}
+    71→
+    72→async function openWithPdfjs(bytes: Uint8Array, password?: string) {
+    73→  const pdfjs = await getPdfjs();
+    74→  return await pdfjs.getDocument({ data: bytes.slice(), password }).promise;
+    75→}
+    76→
+    77→async function loadWithPdfLib(bytes: Uint8Array) {
+    78→  const { PDFDocument } = await getPdfLib();
+    79→  return PDFDocument.load(bytes, { ignoreEncryption: true });
+    80→}
+    81→
+    82→function padNum(n: number, width: number): string {
+    83→  return String(n).padStart(width, "0");
+    84→}
+    85→
+    86→/* ================================================================
+    87→   TOOL IMPLEMENTATIONS
+    88→   ================================================================ */
+    89→
+    90→/* ---------------- MERGE ---------------- */
+    91→
+    92→async function runMerge(
+    93→  entries: { id: string; file: File }[],
+    94→  cb: RunCallbacks
+    95→): Promise<EngineResult> {
+    96→  const { PDFDocument } = await getPdfLib();
+    97→  const out = await PDFDocument.create();
+    98→  for (let i = 0; i < entries.length; i++) {
+    99→    const bytes = await fileToBytes(entries[i].file);
+   100→    let src;
+   101→    try {
+   102→      src = await loadWithPdfLib(bytes);
+   103→    } catch {
+   104→      throw new Error(
+   105→        `"${entries[i].file.name}" could not be read. If it is password-protected, unlock it first.`
+   106→      );
+   107→    }
+   108→    const pages = await out.copyPages(src, src.getPageIndices());
+   109→    for (const p of pages) out.addPage(p);
+   110→    cb.onFileProgress?.(entries[i].id, 1);
+   111→    cb.onOverall?.((i + 1) / entries.length);
+   112→    await tick();
+   113→  }
+   114→  const blob = new Blob([await out.save()], { type: "application/pdf" });
+   115→  return {
+   116→    files: [{ name: "merged.pdf", blob, size: blob.size, kind: "PDF" }],
+   117→    note: `${entries.length} PDFs combined`,
+   118→  };
+   119→}
+   120→
+   121→/* ---------------- SPLIT ---------------- */
+   122→
+   123→export interface SplitOptions {
+   124→  mode: "ranges" | "fixed" | "extract";
+   125→  ranges: string;
+   126→  everyN: number;
+   127→  selectedPages: number[];
+   128→}
+   129→
+   130→function parseRangesStrict(spec: string, total: number): number[][] {
+   131→  const groups: number[][] = [];
+   132→  const parts = spec
+   133→    .split(",")
+   134→    .map((s) => s.trim())
+   135→    .filter(Boolean);
+   136→  if (!parts.length) throw new Error("Enter at least one page range");
+   137→  for (const part of parts) {
+   138→    const m = part.match(/^(\d+)\s*-\s*(\d+)$/);
+   139→    if (m) {
+   140→      let a = parseInt(m[1], 10);
+   141→      let b = parseInt(m[2], 10);
+   142→      if (a > b) [a, b] = [b, a];
+   143→      if (a < 1 || b > total)
+   144→        throw new Error(`Range "${part}" is outside 1–${total}`);
+   145→      const g: number[] = [];
+   146→      for (let i = a; i <= b; i++) g.push(i - 1);
+   147→      groups.push(g);
+   148→    } else if (/^\d+$/.test(part)) {
+   149→      const n = parseInt(part, 10);
+   150→      if (n < 1 || n > total)
+   151→        throw new Error(`Page ${n} is outside 1–${total}`);
+   152→      groups.push([n - 1]);
+   153→    } else {
+   154→      throw new Error(`"${part}" is not a valid page or range`);
+   155→    }
+   156→  }
+   157→  return groups;
+   158→}
+   159→
+   160→async function runSplit(
+   161→  entries: { id: string; file: File }[],
+   162→  opts: SplitOptions,
+   163→  cb: RunCallbacks
+   164→): Promise<EngineResult> {
+   165→  const { PDFDocument } = await getPdfLib();
+   166→  const bytes = await fileToBytes(entries[0].file);
+   167→  const src = await loadWithPdfLib(bytes);
+   168→  const total = src.getPageCount();
+   169→  const base = entries[0].file.name.replace(/\.pdf$/i, "");
+   170→
+   171→  let groups: number[][] = [];
+   172→  if (opts.mode === "ranges") {
+   173→    groups = parseRangesStrict(opts.ranges, total);
+   174→  } else if (opts.mode === "fixed") {
+   175→    const n = Math.max(1, Math.floor(opts.everyN || 1));
+   176→    for (let i = 0; i < total; i += n) {
+   177→      const g: number[] = [];
+   178→      for (let j = i; j < Math.min(i + n, total); j++) g.push(j);
+   179→      groups.push(g);
+   180→    }
+   181→  } else {
+   182→    const sel = [...new Set(opts.selectedPages)].sort((a, b) => a - b);
+   183→    if (!sel.length) throw new Error("Select at least one page below");
+   184→    groups = [sel.map((p) => p - 1)];
+   185→  }
+   186→
+   187→  const outFiles: EngineResult["files"] = [];
+   188→  const many = groups.length > 1;
+   189→  const pad = String(groups.length).length;
+   190→
+   191→  for (let gi = 0; gi < groups.length; gi++) {
+   192→    const out = await PDFDocument.create();
+   193→    const pages = await out.copyPages(src, groups[gi]);
+   194→    for (const p of pages) out.addPage(p);
+   195→    const blob = new Blob([await out.save()], { type: "application/pdf" });
+   196→    const label = many
+   197→      ? `${base}-part${padNum(gi + 1, pad)}.pdf`
+   198→      : `${base}-${groups[gi].length}pages.pdf`;
+   199→    outFiles.push({ name: label, blob, size: blob.size, kind: "PDF" });
+   200→    cb.onOverall?.((gi + 1) / groups.length);
+   201→    await tick();
+   202→  }
+   203→  return { files: outFiles, note: `${groups.length} file(s) created` };
+   204→}
+   205→
+   206→/* ---------------- COMPRESS ---------------- */
+   207→
+   208→export interface CompressOptions {
+   209→  level: "low" | "medium" | "high";
+   210→}
+   211→
+   212→async function runCompress(
+   213→  entries: { id: string; file: File }[],
+   214→  opts: CompressOptions,
+   215→  cb: RunCallbacks
+   216→): Promise<EngineResult> {
+   217→  const settings =
+   218→    opts.level === "high"
+   219→      ? { scale: 2.0, quality: 0.92 }
+   220→      : opts.level === "medium"
+   221→        ? { scale: 1.5, quality: 0.8 }
+   222→        : { scale: 1.1, quality: 0.62 };
+   223→
+   224→  const outFiles: EngineResult["files"] = [];
+   225→  let totalIn = 0;
+   226→  let totalOut = 0;
+   227→
+   228→  for (let i = 0; i < entries.length; i++) {
+   229→    const { id, file } = entries[i];
+   230→    totalIn += file.size;
+   231→    const bytes = await fileToBytes(file);
+   232→    cb.onStatus?.(`Optimizing ${file.name}`);
+   233→
+   234→    // Strategy A — structural re-save (keeps text sharp)
+   235→    let aSize = Infinity;
+   236→    let aBytes: Uint8Array | null = null;
+   237→    try {
+   238→      const docA = await loadWithPdfLib(bytes);
+   239→      aBytes = await docA.save({ useObjectStreams: true });
+   240→      aSize = aBytes.length;
+   241→    } catch {
+   242→      /* ignore */
+   243→    }
+   244→
+   245→    // Strategy B — rasterize pages (great for scans)
+   246→    let bSize = Infinity;
+   247→    let bBlob: Blob | null = null;
+   248→    try {
+   249→      const doc = await openWithPdfjs(bytes);
+   250→      const { PDFDocument } = await getPdfLib();
+   251→      const out = await PDFDocument.create();
+   252→      const n = doc.numPages;
+   253→      for (let p = 1; p <= n; p++) {
+   254→        const canvas = await renderPageToCanvas(doc, p, settings.scale);
+   255→        const jpg = await canvasToBlob(canvas, "image/jpeg", settings.quality);
+   256→        const img = await out.embedJpg(new Uint8Array(await jpg.arrayBuffer()));
+   257→        const page = out.addPage([img.width, img.height]);
+   258→        page.drawImage(img, {
+   259→          x: 0,
+   260→          y: 0,
+   261→          width: img.width,
+   262→          height: img.height,
+   263→        });
+   264→        cb.onFileProgress?.(id, (p / n) * 0.9);
+   265→        await tick();
+   266→      }
+   267→      const saved = await out.save({ useObjectStreams: true });
+   268→      bBlob = new Blob([saved], { type: "application/pdf" });
+   269→      bSize = saved.length;
+   270→    } catch {
+   271→      /* ignore */
+   272→    }
+   273→
+   274→    let outBlob: Blob;
+   275→    if (aSize <= bSize && aBytes) {
+   276→      outBlob = new Blob([aBytes], { type: "application/pdf" });
+   277→    } else if (bBlob) {
+   278→      outBlob = bBlob;
+   279→    } else if (aBytes) {
+   280→      outBlob = new Blob([aBytes], { type: "application/pdf" });
+   281→    } else {
+   282→      throw new Error(`"${file.name}" could not be compressed`);
+   283→    }
+   284→    totalOut += outBlob.size;
+   285→    outFiles.push({
+   286→      name: `${file.name.replace(/\.pdf$/i, "")}-compressed.pdf`,
+   287→      blob: outBlob,
+   288→      size: outBlob.size,
+   289→      kind: "PDF",
+   290→    });
+   291→    cb.onFileProgress?.(id, 1);
+   292→    cb.onOverall?.((i + 1) / entries.length);
+   293→  }
+   294→
+   295→  const note =
+   296→    totalOut < totalIn
+   297→      ? `Saved ${Math.max(1, Math.round((1 - totalOut / totalIn) * 100))}% of size`
+   298→      : "Already optimized — kept the smaller re-save";
+   299→  return { files: outFiles, note };
+   300→}
+   301→
+   302→/* ---------------- ORGANIZE ---------------- */
+   303→
+   304→export interface OrganizeOptions {
+   305→  /** page order (1-based original numbers) after user edits */
+   306→  order: number[];
+   307→  /** extra rotation per original page number */
+   308→  rotations: Record<number, number>;
+   309→}
+   310→
+   311→async function runOrganize(
+   312→  entries: { id: string; file: File }[],
+   313→  opts: OrganizeOptions,
+   314→  cb: RunCallbacks
+   315→): Promise<EngineResult> {
+   316→  const { PDFDocument, degrees } = await getPdfLib();
+   317→  const bytes = await fileToBytes(entries[0].file);
+   318→  const src = await loadWithPdfLib(bytes);
+   319→  if (!opts.order.length) throw new Error("Keep at least one page");
+   320→
+   321→  const out = await PDFDocument.create();
+   322→  const total = opts.order.length;
+   323→  for (let i = 0; i < total; i++) {
+   324→    const original1based = opts.order[i];
+   325→    const [copied] = await out.copyPages(src, [original1based - 1]);
+   326→    const extra = opts.rotations[original1based] ?? 0;
+   327→    if (extra) {
+   328→      const cur = copied.getRotation().angle;
+   329→      copied.setRotation(degrees((cur + extra) % 360));
+   330→    }
+   331→    out.addPage(copied);
+   332→    cb.onOverall?.((i + 1) / total);
+   333→    if (i % 4 === 0) await tick();
+   334→  }
+   335→  const blob = new Blob([await out.save()], { type: "application/pdf" });
+   336→  return {
+   337→    files: [
+   338→      {
+   339→        name: `${entries[0].file.name.replace(/\.pdf$/i, "")}-organized.pdf`,
+   340→        blob,
+   341→        size: blob.size,
+   342→        kind: "PDF",
+   343→      },
+   344→    ],
+   345→    note: `${total} page${total === 1 ? "" : "s"} kept`,
+   346→  };
+   347→}
+   348→
+   349→/* ---------------- ROTATE ---------------- */
+   350→
+   351→export interface RotateOptions {
+   352→  angle: 90 | 180 | 270;
+   353→}
+   354→
+   355→async function runRotate(
+   356→  entries: { id: string; file: File }[],
+   357→  opts: RotateOptions,
+   358→  cb: RunCallbacks
+   359→): Promise<EngineResult> {
+   360→  const { PDFDocument, degrees } = await getPdfLib();
+   361→  const outFiles: EngineResult["files"] = [];
+   362→  for (let i = 0; i < entries.length; i++) {
+   363→    const bytes = await fileToBytes(entries[i].file);
+   364→    const doc = await loadWithPdfLib(bytes);
+   365→    for (const page of doc.getPages()) {
+   366→      const cur = page.getRotation().angle;
+   367→      page.setRotation(degrees((cur + opts.angle) % 360));
+   368→    }
+   369→    const blob = new Blob([await doc.save()], { type: "application/pdf" });
+   370→    outFiles.push({
+   371→      name: `${entries[i].file.name.replace(/\.pdf$/i, "")}-rotated.pdf`,
+   372→      blob,
+   373→      size: blob.size,
+   374→      kind: "PDF",
+   375→    });
+   376→    cb.onFileProgress?.(entries[i].id, 1);
+   377→    cb.onOverall?.((i + 1) / entries.length);
+   378→    await tick();
+   379→  }
+   380→  return { files: outFiles, note: `Rotated ${opts.angle}°` };
+   381→}
+   382→
+   383→/* ---------------- PDF → JPG ---------------- */
+   384→
+   385→export interface PdfToJpgOptions {
+   386→  scale: 1 | 2 | 3;
+   387→}
+   388→
+   389→async function runPdfToJpg(
+   390→  entries: { id: string; file: File }[],
+   391→  opts: PdfToJpgOptions,
+   392→  cb: RunCallbacks
+   393→): Promise<EngineResult> {
+   394→  const outFiles: EngineResult["files"] = [];
+   395→  let pageCount = 0;
+   396→
+   397→  for (let i = 0; i < entries.length; i++) {
+   398→    const bytes = await fileToBytes(entries[i].file);
+   399→    const doc = await openWithPdfjs(bytes);
+   400→    const n = doc.numPages;
+   401→    const base = entries[i].file.name.replace(/\.pdf$/i, "");
+   402→    const pad = String(n).length;
+   403→    for (let p = 1; p <= n; p++) {
+   404→      const canvas = await renderPageToCanvas(doc, p, opts.scale);
+   405→      const blob = await canvasToBlob(canvas, "image/jpeg", 0.92);
+   406→      outFiles.push({
+   407→        name: `${base}-p${padNum(p, pad)}.jpg`,
+   408→        blob,
+   409→        size: blob.size,
+   410→        kind: "JPG",
+   411→      });
+   412→      pageCount++;
+   413→      cb.onStatus?.(`Rendering page ${p}/${n}`);
+   414→      cb.onFileProgress?.(entries[i].id, p / n);
+   415→      cb.onOverall?.(((i + p / n) / entries.length) * 0.95);
+   416→      await tick();
+   417→    }
+   418→    cb.onFileProgress?.(entries[i].id, 1);
+   419→  }
+   420→  cb.onOverall?.(1);
+   421→  return { files: outFiles, note: `${pageCount} image(s) rendered` };
+   422→}
+   423→
+   424→/* ---------------- JPG → PDF ---------------- */
+   425→
+   426→export interface JpgToPdfOptions {
+   427→  pageSize: "fit" | "a4" | "letter";
+   428→  margin: number; // pt
+   429→  orientation: "auto" | "portrait" | "landscape";
+   430→}
+   431→
+   432→async function runJpgToPdf(
+   433→  entries: { id: string; file: File }[],
+   434→  opts: JpgToPdfOptions,
+   435→  cb: RunCallbacks
+   436→): Promise<EngineResult> {
+   437→  const { PDFDocument } = await getPdfLib();
+   438→  const out = await PDFDocument.create();
+   439→  const A4 = { w: 595.28, h: 841.89 };
+   440→  const LETTER = { w: 612, h: 792 };
+   441→
+   442→  for (let i = 0; i < entries.length; i++) {
+   443→    const bytes = new Uint8Array(await entries[i].file.arrayBuffer());
+   444→    let img;
+   445→    try {
+   446→      img = await out.embedJpg(bytes);
+   447→    } catch {
+   448→      img = await out.embedPng(bytes);
+   449→    }
+   450→
+   451→    let pageW: number;
+   452→    let pageH: number;
+   453→    if (opts.pageSize === "fit") {
+   454→      pageW = img.width + opts.margin * 2;
+   455→      pageH = img.height + opts.margin * 2;
+   456→    } else {
+   457→      const std = opts.pageSize === "a4" ? A4 : LETTER;
+   458→      const landscape =
+   459→        opts.orientation === "landscape" ||
+   460→        (opts.orientation === "auto" && img.width > img.height);
+   461→      pageW = landscape ? std.h : std.w;
+   462→      pageH = landscape ? std.w : std.h;
+   463→    }
+   464→    const page = out.addPage([pageW, pageH]);
+   465→    const maxW = pageW - opts.margin * 2;
+   466→    const maxH = pageH - opts.margin * 2;
+   467→    const ratio = Math.min(maxW / img.width, maxH / img.height);
+   468→    const w = img.width * ratio;
+   469→    const h = img.height * ratio;
+   470→    page.drawImage(img, {
+   471→      x: (pageW - w) / 2,
+   472→      y: (pageH - h) / 2,
+   473→      width: w,
+   474→      height: h,
+   475→    });
+   476→    cb.onFileProgress?.(entries[i].id, 1);
+   477→    cb.onOverall?.((i + 1) / entries.length);
+   478→    await tick();
+   479→  }
+   480→  const blob = new Blob([await out.save()], { type: "application/pdf" });
+   481→  return {
+   482→    files: [
+   483→      {
+   484→        name:
+   485→          entries.length === 1
+   486→            ? `${entries[0].file.name.replace(/\.(jpg|jpeg|png)$/i, "")}.pdf`
+   487→            : "images.pdf",
+   488→        blob,
+   489→        size: blob.size,
+   490→        kind: "PDF",
+   491→      },
+   492→    ],
+   493→    note: `${entries.length} image(s) placed`,
+   494→  };
+   495→}
+   496→
+   497→/* ---------------- PDF → WORD ---------------- */
+   498→
+   499→async function runPdfToWord(
+   500→  entries: { id: string; file: File }[],
+   501→  _opts: Record<string, never>,
+   502→  cb: RunCallbacks
+   503→): Promise<EngineResult> {
+   504→  const { Document, Packer, Paragraph, TextRun, HeadingLevel } = await import(
+   505→    "docx"
+   506→  );
+   507→  const outFiles: EngineResult["files"] = [];
+   508→
+   509→  for (let i = 0; i < entries.length; i++) {
+   510→    const bytes = await fileToBytes(entries[i].file);
+   511→    const doc = await openWithPdfjs(bytes);
+   512→    const n = doc.numPages;
+   513→    const children: any[] = [];
+   514→
+   515→    for (let p = 1; p <= n; p++) {
+   516→      const page = await doc.getPage(p);
+   517→      const tc = await page.getTextContent();
+   518→      const lines: {
+   519→        y: number;
+   520→        items: { x: number; str: string; bold: boolean; size: number }[];
+   521→      }[] = [];
+   522→      for (const item of tc.items as any[]) {
+   523→        if (!item.str || !item.str.trim()) continue;
+   524→        const x = item.transform[4];
+   525→        const y = item.transform[5];
+   526→        const size = Math.hypot(item.transform[0], item.transform[1]) || 12;
+   527→        const bold = /bold|black|heavy/i.test(String(item.fontName || ""));
+   528→        let line = lines.find((l) => Math.abs(l.y - y) < size * 0.6);
+   529→        if (!line) {
+   530→          line = { y, items: [] };
+   531→          lines.push(line);
+   532→        }
+   533→        line.items.push({ x, str: item.str, bold, size });
+   534→      }
+   535→      lines.sort((a, b) => b.y - a.y);
+   536→
+   537→      if (p > 1) children.push(new Paragraph({ text: "" }));
+   538→      for (const line of lines) {
+   539→        line.items.sort((a, b) => a.x - b.x);
+   540→        let text = "";
+   541→        let prevEnd: number | null = null;
+   542→        for (const it of line.items) {
+   543→          if (prevEnd !== null) {
+   544→            const gap = it.x - prevEnd;
+   545→            if (gap > 1.5) text += gap > 12 ? "  " : " ";
+   546→          }
+   547→          text += it.str;
+   548→          prevEnd = it.x + it.str.length * it.size * 0.5;
+   549→        }
+   550→        if (!text.trim()) continue;
+   551→        const maxSize = Math.max(...line.items.map((s) => s.size));
+   552→        const allBold = line.items.every((s) => s.bold);
+   553→        if (allBold && maxSize > 13) {
+   554→          children.push(
+   555→            new Paragraph({
+   556→              heading:
+   557→                maxSize > 17 ? HeadingLevel.HEADING_1 : HeadingLevel.HEADING_2,
+   558→              children: [new TextRun({ text, bold: true })],
+   559→            })
+   560→          );
+   561→        } else {
+   562→          children.push(
+   563→            new Paragraph({
+   564→              children: [
+   565→                new TextRun({
+   566→                  text,
+   567→                  size: Math.max(16, Math.round(maxSize * 2 * 0.75)),
+   568→                  bold: allBold,
+   569→                }),
+   570→              ],
+   571→            })
+   572→          );
+   573→        }
+   574→      }
+   575→      cb.onStatus?.(`Extracting page ${p}/${n}`);
+   576→      cb.onFileProgress?.(entries[i].id, p / n);
+   577→      cb.onOverall?.(((i + p / n) / entries.length) * 0.92);
+   578→      await tick();
+   579→    }
+   580→
+   581→    const docxDoc = new Document({ sections: [{ children }] });
+   582→    const blob = await Packer.toBlob(docxDoc);
+   583→    outFiles.push({
+   584→      name: `${entries[i].file.name.replace(/\.pdf$/i, "")}.docx`,
+   585→      blob,
+   586→      size: blob.size,
+   587→      kind: "DOCX",
+   588→    });
+   589→    cb.onFileProgress?.(entries[i].id, 1);
+   590→  }
+   591→  cb.onOverall?.(1);
+   592→  return {
+   593→    files: outFiles,
+   594→    note: "Text layer extracted — scanned PDFs have no text layer",
+   595→  };
+   596→}
+   597→
+   598→/* ---------------- PDF → EXCEL ---------------- */
+   599→
+   600→async function runPdfToExcel(
+   601→  entries: { id: string; file: File }[],
+   602→  _opts: Record<string, never>,
+   603→  cb: RunCallbacks
+   604→): Promise<EngineResult> {
+   605→  const XLSX = await import("xlsx");
+   606→  const wb = XLSX.utils.book_new();
+   607→
+   608→  for (let i = 0; i < entries.length; i++) {
+   609→    const bytes = await fileToBytes(entries[i].file);
+   610→    const doc = await openWithPdfjs(bytes);
+   611→    const n = doc.numPages;
+   612→    const rows: (string | number)[][] = [];
+   613→
+   614→    for (let p = 1; p <= n; p++) {
+   615→      const page = await doc.getPage(p);
+   616→      const tc = await page.getTextContent();
+   617→      const lines: { y: number; cells: { x: number; str: string }[] }[] = [];
+   618→      for (const item of tc.items as any[]) {
+   619→        if (!item.str || !item.str.trim()) continue;
+   620→        const x = item.transform[4];
+   621→        const y = item.transform[5];
+   622→        const size = Math.hypot(item.transform[0], item.transform[1]) || 12;
+   623→        let line = lines.find((l) => Math.abs(l.y - y) < size * 0.5);
+   624→        if (!line) {
+   625→          line = { y, cells: [] };
+   626→          lines.push(line);
+   627→        }
+   628→        line.cells.push({ x, str: item.str });
+   629→      }
+   630→      lines.sort((a, b) => b.y - a.y);
+   631→      rows.push([`--- Page ${p} ---`]);
+   632→      for (const line of lines) {
+   633→        line.cells.sort((a, b) => a.x - b.x);
+   634→        const cells: string[] = [];
+   635→        let prevEnd: number | null = null;
+   636→        let cur = "";
+   637→        for (const c of line.cells) {
+   638→          if (prevEnd !== null && c.x - prevEnd > 14) {
+   639→            cells.push(cur.trim());
+   640→            cur = "";
+   641→          } else if (cur) {
+   642→            cur += " ";
+   643→          }
+   644→          cur += c.str;
+   645→          prevEnd = c.x + c.str.length * 4;
+   646→        }
+   647→        if (cur.trim()) cells.push(cur.trim());
+   648→        rows.push(cells.length ? cells : [""]);
+   649→      }
+   650→      cb.onStatus?.(`Page ${p}/${n}`);
+   651→      cb.onFileProgress?.(entries[i].id, p / n);
+   652→      cb.onOverall?.(((i + p / n) / entries.length) * 0.92);
+   653→      await tick();
+   654→    }
+   655→
+   656→    const sheetName = `P${i + 1}-${entries[i].file.name
+   657→      .replace(/\.pdf$/i, "")
+   658→      .slice(0, 20)}`.replace(/[\\/?*[\]:]/g, "_");
+   659→    const ws = XLSX.utils.aoa_to_sheet(rows);
+   660→    XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0, 31));
+   661→    cb.onFileProgress?.(entries[i].id, 1);
+   662→  }
+   663→
+   664→  const data = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+   665→  const blob = new Blob([data], {
+   666→    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+   667→  });
+   668→  const name =
+   669→    entries.length === 1
+   670→      ? `${entries[0].file.name.replace(/\.pdf$/i, "")}.xlsx`
+   671→      : "tables.xlsx";
+   672→  cb.onOverall?.(1);
+   673→  return {
+   674→    files: [{ name, blob, size: blob.size, kind: "XLSX" }],
+   675→    note: "One row per text line — columns split by spacing",
+   676→  };
+   677→}
+   678→
+   679→/* ---------------- PDF → PPT ---------------- */
+   680→
+   681→async function runPdfToPpt(
+   682→  entries: { id: string; file: File }[],
+   683→  _opts: Record<string, never>,
+   684→  cb: RunCallbacks
+   685→): Promise<EngineResult> {
+   686→  const PptxGenJS = (await import("pptxgenjs")).default;
+   687→  const pptx = new PptxGenJS();
+   688→  pptx.defineLayout({ name: "WIDE", width: 13.333, height: 7.5 });
+   689→  pptx.layout = "WIDE";
+   690→
+   691→  let pageCount = 0;
+   692→  let totalPages = 0;
+   693→  const docs: any[] = [];
+   694→  for (const e of entries) {
+   695→    const bytes = await fileToBytes(e.file);
+   696→    const doc = await openWithPdfjs(bytes);
+   697→    docs.push(doc);
+   698→    totalPages += doc.numPages;
+   699→  }
+   700→
+   701→  for (let i = 0; i < docs.length; i++) {
+   702→    const doc = docs[i];
+   703→    const n = doc.numPages;
+   704→    for (let p = 1; p <= n; p++) {
+   705→      const canvas = await renderPageToCanvas(doc, p, 2);
+   706→      const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+   707→      const slide = pptx.addSlide();
+   708→      const iw = canvas.width;
+   709→      const ih = canvas.height;
+   710→      const ratio = Math.min(13.333 / iw, 7.5 / ih);
+   711→      const w = iw * ratio;
+   712→      const h = ih * ratio;
+   713→      slide.addImage({
+   714→        data: dataUrl,
+   715→        x: (13.333 - w) / 2,
+   716→        y: (7.5 - h) / 2,
+   717→        w,
+   718→        h,
+   719→      });
+   720→      pageCount++;
+   721→      cb.onStatus?.(`Building slide ${pageCount}/${totalPages}`);
+   722→      cb.onFileProgress?.(entries[i].id, p / n);
+   723→      cb.onOverall?.(0.95 * (pageCount / totalPages));
+   724→      await tick();
+   725→    }
+   726→    cb.onFileProgress?.(entries[i].id, 1);
+   727→  }
+   728→  const blob = (await pptx.write({ outputType: "blob" })) as Blob;
+   729→  const name =
+   730→    entries.length === 1
+   731→      ? `${entries[0].file.name.replace(/\.pdf$/i, "")}.pptx`
+   732→      : "slides.pptx";
+   733→  cb.onOverall?.(1);
+   734→  return {
+   735→    files: [{ name, blob, size: blob.size, kind: "PPTX" }],
+   736→    note: `${pageCount} slide(s) — pages become slide images`,
+   737→  };
+   738→}
+   739→
+   740→/* ---------------- WORD → PDF ---------------- */
+   741→
+   742→export interface WordToPdfOptions {
+   743→  pageSize: "a4" | "letter";
+   744→}
+   745→
+   746→async function runWordToPdf(
+   747→  entries: { id: string; file: File }[],
+   748→  opts: WordToPdfOptions,
+   749→  cb: RunCallbacks
+   750→): Promise<EngineResult> {
+   751→  const mammoth = await import("mammoth");
+   752→  const { jsPDF } = await import("jspdf");
+   753→  const outFiles: EngineResult["files"] = [];
+   754→  const pageW = opts.pageSize === "a4" ? 595.28 : 612;
+   755→  const pageH = opts.pageSize === "a4" ? 841.89 : 792;
+   756→  const M = 56;
+   757→
+   758→  for (let i = 0; i < entries.length; i++) {
+   759→    const buf = await entries[i].file.arrayBuffer();
+   760→    const { value: html } = await mammoth.convertToHtml({ arrayBuffer: buf });
+   761→    const dom = new DOMParser().parseFromString(html, "text/html");
+   762→    const pdf = new jsPDF({ unit: "pt", format: [pageW, pageH] });
+   763→    let y = M;
+   764→
+   765→    const writeBlock = (
+   766→      text: string,
+   767→      size: number,
+   768→      bold: boolean,
+   769→      gapAfter: number
+   770→    ) => {
+   771→      const clean = text.replace(/\s+/g, " ").trim();
+   772→      if (!clean) return;
+   773→      pdf.setFont("helvetica", bold ? "bold" : "normal");
+   774→      pdf.setFontSize(size);
+   775→      const lines = pdf.splitTextToSize(clean, pageW - M * 2) as string[];
+   776→      for (const ln of lines) {
+   777→        if (y > pageH - M) {
+   778→          pdf.addPage();
+   779→          y = M;
+   780→        }
+   781→        pdf.text(ln, M, y);
+   782→        y += size * 1.4;
+   783→      }
+   784→      y += gapAfter;
+   785→    };
+   786→
+   787→    const walk = (node: Element) => {
+   788→      for (const el of Array.from(node.children)) {
+   789→        const tag = el.tagName.toLowerCase();
+   790→        const text = el.textContent ?? "";
+   791→        if (/^h[1-6]$/.test(tag)) {
+   792→          const size = [20, 17, 15, 13.5, 12.5, 12][parseInt(tag[1], 10) - 1];
+   793→          writeBlock(text, size, true, 6);
+   794→        } else if (tag === "li") {
+   795→          writeBlock(`•  ${text}`, 11, false, 2);
+   796→        } else if (tag === "table") {
+   797→          const rows = Array.from(el.querySelectorAll("tr"));
+   798→          for (const tr of rows) {
+   799→            const cells = Array.from(tr.querySelectorAll("th,td")).map(
+   800→              (c) => (c.textContent ?? "").trim()
+   801→            );
+   802→            writeBlock(
+   803→              cells.join("    |    "),
+   804→              10,
+   805→              tr.querySelector("th") !== null,
+   806→              2
+   807→            );
+   808→          }
+   809→          y += 6;
+   810→        } else if (el.children.length) {
+   811→          walk(el);
+   812→        } else {
+   813→          writeBlock(text, 11, false, 8);
+   814→        }
+   815→      }
+   816→    };
+   817→    walk(dom.body);
+   818→
+   819→    const blob = pdf.output("blob");
+   820→    outFiles.push({
+   821→      name: `${entries[i].file.name.replace(/\.docx$/i, "")}.pdf`,
+   822→      blob,
+   823→      size: blob.size,
+   824→      kind: "PDF",
+   825→    });
+   826→    cb.onFileProgress?.(entries[i].id, 1);
+   827→    cb.onOverall?.((i + 1) / entries.length);
+   828→  }
+   829→  return {
+   830→    files: outFiles,
+   831→    note: "Text & structure kept — complex layout simplified",
+   832→  };
+   833→}
+   834→
+   835→/* ---------------- WATERMARK ---------------- */
+   836→
+   837→export interface WatermarkOptions {
+   838→  text: string;
+   839→  fontSize: number;
+   840→  color: string; // hex
+   841→  opacity: number; // 0..1
+   842→  rotation: number;
+   843→  position: "center" | "diagonal" | "tile" | "footer" | "header";
+   844→  bold: boolean;
+   845→}
+   846→
+   847→function hexToRgb01(hex: string): [number, number, number] {
+   848→  const m = hex.replace("#", "");
+   849→  const r = parseInt(m.slice(0, 2), 16) / 255;
+   850→  const g = parseInt(m.slice(2, 4), 16) / 255;
+   851→  const b = parseInt(m.slice(4, 6), 16) / 255;
+   852→  return [r, g, b];
+   853→}
+   854→
+   855→async function runWatermark(
+   856→  entries: { id: string; file: File }[],
+   857→  opts: WatermarkOptions,
+   858→  cb: RunCallbacks
+   859→): Promise<EngineResult> {
+   860→  const { PDFDocument, degrees, rgb, StandardFonts } = await getPdfLib();
+   861→  if (!opts.text.trim()) throw new Error("Enter watermark text");
+   862→  const holder = await PDFDocument.create();
+   863→  const font = opts.bold
+   864→    ? await holder.embedFont(StandardFonts.HelveticaBold)
+   865→    : await holder.embedFont(StandardFonts.Helvetica);
+   866→  const [r, g, b] = hexToRgb01(opts.color);
+   867→
+   868→  const outFiles: EngineResult["files"] = [];
+   869→  for (let i = 0; i < entries.length; i++) {
+   870→    const bytes = await fileToBytes(entries[i].file);
+   871→    const doc = await loadWithPdfLib(bytes);
+   872→    const pages = doc.getPages();
+   873→    for (const page of pages) {
+   874→      const { width, height } = page.getSize();
+   875→      const tw = font.widthOfTextAtSize(opts.text, opts.fontSize);
+   876→      const draw = (x: number, y: number, rot: number) => {
+   877→        page.drawText(opts.text, {
+   878→          x,
+   879→          y,
+   880→          size: opts.fontSize,
+   881→          font,
+   882→          color: rgb(r, g, b),
+   883→          opacity: opts.opacity,
+   884→          rotate: degrees(rot),
+   885→        });
+   886→      };
+   887→      switch (opts.position) {
+   888→        case "center":
+   889→          draw((width - tw) / 2, height / 2 - opts.fontSize / 2, 0);
+   890→          break;
+   891→        case "diagonal":
+   892→          draw((width - tw) / 2 - width * 0.1, height * 0.35, opts.rotation);
+   893→          break;
+   894→        case "tile": {
+   895→          const stepX = Math.max(40, tw + width * 0.08);
+   896→          const stepY = Math.max(30, opts.fontSize * 5);
+   897→          for (let y = 0; y < height + stepY; y += stepY) {
+   898→            for (let x = -tw; x < width + stepX; x += stepX) {
+   899→              draw(x, y, opts.rotation);
+   900→            }
+   901→          }
+   902→          break;
+   903→        }
+   904→        case "footer":
+   905→          draw((width - tw) / 2, opts.fontSize * 1.2, 0);
+   906→          break;
+   907→        case "header":
+   908→          draw((width - tw) / 2, height - opts.fontSize * 2, 0);
+   909→          break;
+   910→      }
+   911→    }
+   912→    const blob = new Blob([await doc.save()], { type: "application/pdf" });
+   913→    outFiles.push({
+   914→      name: `${entries[i].file.name.replace(/\.pdf$/i, "")}-watermarked.pdf`,
+   915→      blob,
+   916→      size: blob.size,
+   917→      kind: "PDF",
+   918→    });
+   919→    cb.onFileProgress?.(entries[i].id, 1);
+   920→    cb.onOverall?.((i + 1) / entries.length);
+   921→    await tick();
+   922→  }
+   923→  return { files: outFiles, note: `"${opts.text}" stamped on every page` };
+   924→}
+   925→
+   926→/* ---------------- PAGE NUMBERS ---------------- */
+   927→
+   928→export interface PageNumberOptions {
+   929→  format: "n" | "page_n" | "n_of_total";
+   930→  position:
+   931→    | "bottom-center"
+   932→    | "bottom-right"
+   933→    | "bottom-left"
+   934→    | "top-center"
+   935→    | "top-right"
+   936→    | "top-left";
+   937→  startAt: number;
+   938→  fontSize: number;
+   939→  skipFirst: boolean;
+   940→}
+   941→
+   942→async function runPageNumbers(
+   943→  entries: { id: string; file: File }[],
+   944→  opts: PageNumberOptions,
+   945→  cb: RunCallbacks
+   946→): Promise<EngineResult> {
+   947→  const { PDFDocument, StandardFonts } = await getPdfLib();
+   948→  const outFiles: EngineResult["files"] = [];
+   949→
+   950→  for (let i = 0; i < entries.length; i++) {
+   951→    const bytes = await fileToBytes(entries[i].file);
+   952→    const doc = await loadWithPdfLib(bytes);
+   953→    const font = await doc.embedFont(StandardFonts.Helvetica);
+   954→    const pages = doc.getPages();
+   955→    const total = pages.length;
+   956→    const showFrom = opts.skipFirst ? 2 : 1;
+   957→
+   958→    for (let p = 1; p <= total; p++) {
+   959→      if (p < showFrom) continue;
+   960→      const num = opts.startAt + p - 1;
+   961→      const label =
+   962→        opts.format === "n"
+   963→          ? `${num}`
+   964→          : opts.format === "page_n"
+   965→            ? `Page ${num}`
+   966→            : `${num} / ${opts.startAt + total - 1}`;
+   967→      const page = pages[p - 1];
+   968→      const { width, height } = page.getSize();
+   969→      const tw = font.widthOfTextAtSize(label, opts.fontSize);
+   970→      const M = 28;
+   971→      let x = (width - tw) / 2;
+   972→      let y = M;
+   973→      if (opts.position.endsWith("right")) x = width - M - tw;
+   974→      if (opts.position.endsWith("left")) x = M;
+   975→      if (opts.position.startsWith("top")) y = height - M - opts.fontSize;
+   976→      page.drawText(label, { x, y, size: opts.fontSize, font });
+   977→    }
+   978→    const blob = new Blob([await doc.save()], { type: "application/pdf" });
+   979→    outFiles.push({
+   980→      name: `${entries[i].file.name.replace(/\.pdf$/i, "")}-numbered.pdf`,
+   981→      blob,
+   982→      size: blob.size,
+   983→      kind: "PDF",
+   984→    });
+   985→    cb.onFileProgress?.(entries[i].id, 1);
+   986→    cb.onOverall?.((i + 1) / entries.length);
+   987→    await tick();
+   988→  }
+   989→  return { files: outFiles, note: "Numbers placed" };
+   990→}
+   991→
+   992→/* ---------------- CROP ---------------- */
+   993→
+   994→export interface CropOptions {
+   995→  top: number; // %
+   996→  right: number;
+   997→  bottom: number;
+   998→  left: number;
+   999→}
+  1000→
+  1001→async function runCrop(
+  1002→  entries: { id: string; file: File }[],
+  1003→  opts: CropOptions,
+  1004→  cb: RunCallbacks
+  1005→): Promise<EngineResult> {
+  1006→  const { PDFDocument } = await getPdfLib();
+  1007→  const outFiles: EngineResult["files"] = [];
+  1008→  const clamp = (v: number) => Math.max(0, Math.min(45, v)) / 100;
+  1009→  const t = clamp(opts.top);
+  1010→  const rr = clamp(opts.right);
+  1011→  const b = clamp(opts.bottom);
+  1012→  const l = clamp(opts.left);
+  1013→
+  1014→  for (let i = 0; i < entries.length; i++) {
+  1015→    const bytes = await fileToBytes(entries[i].file);
+  1016→    const doc = await loadWithPdfLib(bytes);
+  1017→    for (const page of doc.getPages()) {
+  1018→      const { width, height } = page.getSize();
+  1019→      const newW = width * (1 - rr - l);
+  1020→      const newH = height * (1 - t - b);
+  1021→      page.setCropBox(width * l, height * b, newW, newH);
+  1022→    }
+  1023→    const blob = new Blob([await doc.save()], { type: "application/pdf" });
+  1024→    outFiles.push({
+  1025→      name: `${entries[i].file.name.replace(/\.pdf$/i, "")}-cropped.pdf`,
+  1026→      blob,
+  1027→      size: blob.size,
+  1028→      kind: "PDF",
+  1029→    });
+  1030→    cb.onFileProgress?.(entries[i].id, 1);
+  1031→    cb.onOverall?.((i + 1) / entries.length);
+  1032→    await tick();
+  1033→  }
+  1034→  return { files: outFiles, note: "Crop box applied to all pages" };
+  1035→}
+  1036→
+  1037→/* ---------------- PROTECT ---------------- */
+  1038→
+  1039→export interface ProtectOptions {
+  1040→  password: string;
+  1041→  confirm: string;
+  1042→}
+  1043→
+  1044→async function runProtect(
+  1045→  entries: { id: string; file: File }[],
+  1046→  opts: ProtectOptions,
+  1047→  cb: RunCallbacks
+  1048→): Promise<EngineResult> {
+  1049→  if (!opts.password || opts.password.length < 4)
+  1050→    throw new Error("Use a password of at least 4 characters");
+  1051→  if (opts.password !== opts.confirm) throw new Error("Passwords do not match");
+  1052→
+  1053→  const Cantoo = await getCantoo();
+  1054→  const outFiles: EngineResult["files"] = [];
+  1055→
+  1056→  for (let i = 0; i < entries.length; i++) {
+  1057→    const bytes = await fileToBytes(entries[i].file);
+  1058→    const doc = await Cantoo.PDFDocument.load(bytes, {
+  1059→      ignoreEncryption: true,
+  1060→    });
+  1061→    const anyDoc = doc as any;
+  1062→    if (typeof anyDoc.encrypt !== "function") {
+  1063→      throw new Error("Encryption engine unavailable in this browser");
+  1064→    }
+  1065→    anyDoc.encrypt({
+  1066→      userPassword: opts.password,
+  1067→      ownerPassword: opts.password,
+  1068→      permissions: {
+  1069→        printing: "highResolution",
+  1070→        modifying: false,
+  1071→        copying: false,
+  1072→        annotating: false,
+  1073→        fillingForms: true,
+  1074→        contentAccessibility: true,
+  1075→        documentAssembly: false,
+  1076→      },
+  1077→    });
+  1078→    const saved = await doc.save();
+  1079→    const blob = new Blob([saved], { type: "application/pdf" });
+  1080→    outFiles.push({
+  1081→      name: `${entries[i].file.name.replace(/\.pdf$/i, "")}-protected.pdf`,
+  1082→      blob,
+  1083→      size: blob.size,
+  1084→      kind: "PDF",
+  1085→    });
+  1086→    cb.onFileProgress?.(entries[i].id, 1);
+  1087→    cb.onOverall?.((i + 1) / entries.length);
+  1088→    await tick();
+  1089→  }
+  1090→  return {
+  1091→    files: outFiles,
+  1092→    note: "Password set — keep it safe, it cannot be recovered",
+  1093→  };
+  1094→}
+  1095→
+  1096→/* ---------------- UNLOCK ---------------- */
+  1097→
+  1098→export interface UnlockOptions {
+  1099→  password: string;
+  1100→}
+  1101→
+  1102→async function runUnlock(
+  1103→  entries: { id: string; file: File }[],
+  1104→  opts: UnlockOptions,
+  1105→  cb: RunCallbacks
+  1106→): Promise<EngineResult> {
+  1107→  const Cantoo = await getCantoo();
+  1108→  const outFiles: EngineResult["files"] = [];
+  1109→
+  1110→  for (let i = 0; i < entries.length; i++) {
+  1111→    const bytes = await fileToBytes(entries[i].file);
+  1112→    let doc;
+  1113→    try {
+  1114→      doc = await Cantoo.PDFDocument.load(bytes, {
+  1115→        password: opts.password,
+  1116→        throwOnInvalidObject: false,
+  1117→      });
+  1118→    } catch {
+  1119→      throw new Error(
+  1120→        "Wrong password, or the file is not an encrypted PDF we can open"
+  1121→      );
+  1122→    }
+  1123→    const saved = await doc.save({ ignoreEncryption: false });
+  1124→    const blob = new Blob([saved], { type: "application/pdf" });
+  1125→    outFiles.push({
+  1126→      name: `${entries[i].file.name.replace(/\.pdf$/i, "")}-unlocked.pdf`,
+  1127→      blob,
+  1128→      size: blob.size,
+  1129→      kind: "PDF",
+  1130→    });
+  1131→    cb.onFileProgress?.(entries[i].id, 1);
+  1132→    cb.onOverall?.((i + 1) / entries.length);
+  1133→    await tick();
+  1134→  }
+  1135→  return { files: outFiles, note: "Password removed from the saved copy" };
+  1136→}
+  1137→
+  1138→/* ================================================================
+  1139→   DISPATCHER
+  1140→   ================================================================ */
+  1141→
+  1142→export async function runTool(
+  1143→  toolId: string,
+  1144→  entries: { id: string; file: File }[],
+  1145→  opts: any,
+  1146→  cb: RunCallbacks
+  1147→): Promise<EngineResult> {
+  1148→  switch (toolId) {
+  1149→    case "merge":
+  1150→      return runMerge(entries, cb);
+  1151→    case "split":
+  1152→      return runSplit(entries, opts, cb);
+  1153→    case "compress":
+  1154→      return runCompress(entries, opts, cb);
+  1155→    case "organize":
+  1156→      return runOrganize(entries, opts, cb);
+  1157→    case "rotate":
+  1158→      return runRotate(entries, opts, cb);
+  1159→    case "pdf-to-jpg":
+  1160→      return runPdfToJpg(entries, opts, cb);
+  1161→    case "jpg-to-pdf":
+  1162→      return runJpgToPdf(entries, opts, cb);
+  1163→    case "pdf-to-word":
+  1164→      return runPdfToWord(entries, opts, cb);
+  1165→    case "pdf-to-excel":
+  1166→      return runPdfToExcel(entries, opts, cb);
+  1167→    case "pdf-to-ppt":
+  1168→      return runPdfToPpt(entries, opts, cb);
+  1169→    case "word-to-pdf":
+  1170→      return runWordToPdf(entries, opts, cb);
+  1171→    case "watermark":
+  1172→      return runWatermark(entries, opts, cb);
+  1173→    case "page-numbers":
+  1174→      return runPageNumbers(entries, opts, cb);
+  1175→    case "crop":
+  1176→      return runCrop(entries, opts, cb);
+  1177→    case "protect":
+  1178→      return runProtect(entries, opts, cb);
+  1179→    case "unlock":
+  1180→      return runUnlock(entries, opts, cb);
+  1181→    default:
+  1182→      throw new Error("Unknown tool");
+  1183→  }
+  1184→}
+  1185→
+  1186→/** render first page data-url for live previews */
+  1187→export async function firstPagePreview(
+  1188→  file: File,
+  1189→  scale = 1
+  1190→): Promise<{ dataUrl: string; width: number; height: number }> {
+  1191→  const bytes = await fileToBytes(file);
+  1192→  const doc = await openWithPdfjs(bytes);
+  1193→  const canvas = await renderPageToCanvas(doc, 1, scale);
+  1194→  return {
+  1195→    dataUrl: canvas.toDataURL("image/png"),
+  1196→    width: canvas.width,
+  1197→    height: canvas.height,
+  1198→  };
+  1199→}
+  1200→
+  1201→/** generate page thumbnails for a pdf file */
+  1202→export async function makeThumbnails(
+  1203→  file: File,
+  1204→  opts: { targetWidth?: number; limit?: number } = {}
+  1205→): Promise<
+  1206→  { dataUrl: string; page: number; width: number; height: number }[]
+  1207→> {
+  1208→  const targetWidth = opts.targetWidth ?? 180;
+  1209→  const limit = opts.limit ?? 200;
+  1210→  const bytes = await fileToBytes(file);
+  1211→  const doc = await openWithPdfjs(bytes);
+  1212→  const n = Math.min(doc.numPages, limit);
+  1213→  const out: {
+  1214→    dataUrl: string;
+  1215→    page: number;
+  1216→    width: number;
+  1217→    height: number;
+  1218→  }[] = [];
+  1219→  const first = await doc.getPage(1);
+  1220→  const base = first.getViewport({ scale: 1 });
+  1221→  const scale = targetWidth / base.width;
+  1222→  for (let p = 1; p <= n; p++) {
+  1223→    const canvas = await renderPageToCanvas(doc, p, scale);
+  1224→    out.push({
+  1225→      dataUrl: canvas.toDataURL("image/jpeg", 0.7),
+  1226→      page: p,
+  1227→      width: canvas.width,
+  1228→      height: canvas.height,
+  1229→    });
+  1230→    if (p % 3 === 0) await tick();
+  1231→  }
+  1232→  return out;
+  1233→}
+  1234→
+  1235→export { parseRangesStrict };
+  1236→
