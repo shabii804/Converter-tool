@@ -88,6 +88,11 @@ function padNum(n: number, width: number): string {
   return String(n).padStart(width, "0");
 }
 
+/** pdf-lib save output → Blob (TS-safe ArrayBuffer view) */
+function pdfBlob(bytes: Uint8Array, type = "application/pdf"): Blob {
+  return new Blob([bytes.slice().buffer as ArrayBuffer], { type });
+}
+
 function baseName(name: string, extraExt?: string): string {
   return name.replace(/\.[a-z0-9]+$/i, "") + (extraExt ?? "");
 }
@@ -165,7 +170,7 @@ async function runCompressTarget(
       bestNote = "Lossless re-save";
     }
     if (saved.length <= target) {
-      const blob = new Blob([saved], { type: "application/pdf" });
+      const blob = pdfBlob(saved);
       cb.onFileProgress?.(id, 1);
       cb.onOverall?.(1);
       return {
@@ -217,7 +222,7 @@ async function runCompressTarget(
 
   if (!bestBytes) throw new Error(`"${file.name}" could not be compressed`);
 
-  const blob = new Blob([bestBytes], { type: "application/pdf" });
+  const blob = pdfBlob(bestBytes);
   const kb = Math.round(bestSize / 1024);
   cb.onFileProgress?.(id, 1);
   cb.onOverall?.(1);
@@ -263,6 +268,7 @@ function assertPixels(w: number, h: number, name: string) {
 }
 
 type ImgFormat = "jpeg" | "png" | "webp";
+type SrcFormat = ImgFormat | "gif" | "bmp";
 
 const FORMAT_EXT: Record<ImgFormat, string> = {
   jpeg: "jpg",
@@ -270,11 +276,13 @@ const FORMAT_EXT: Record<ImgFormat, string> = {
   webp: "webp",
 };
 
-function sourceFormat(file: File): ImgFormat {
+function sourceFormat(file: File): SrcFormat {
   const t = file.type;
   if (t === "image/png") return "png";
   if (t === "image/webp") return "webp";
-  return "jpeg"; // jpeg, gif, bmp, avif… → safest map
+  if (t === "image/gif") return "gif";
+  if (t === "image/bmp") return "bmp";
+  return "jpeg"; // jpeg, avif, etc. → safest map
 }
 
 function pickTargetDims(
@@ -503,7 +511,7 @@ async function runPdfToPng(
       const page = await doc.getPage(p);
       const v1 = page.getViewport({ scale: 1 });
       const maxSide = Math.max(v1.width, v1.height) * opts.scale;
-      let scale = opts.scale;
+      let scale: number = opts.scale;
       if (maxSide > CANVAS_MAX_SIDE) {
         scale = Math.max(0.2, (CANVAS_MAX_SIDE / Math.max(v1.width, v1.height)));
         clamped = true;
@@ -812,7 +820,7 @@ async function runTextToPdf(
 
   const doc = await PDFDocument.create();
   let font: any;
-  let fontLabel = opts.fontFamily;
+  let fontLabel: string = opts.fontFamily;
 
   if (opts.customFont) {
     const fontkit = await import("@pdf-lib/fontkit");
@@ -930,7 +938,7 @@ async function runTextToPdf(
   }
   cb.onOverall?.(1);
 
-  const blob = new Blob([await doc.save()], { type: "application/pdf" });
+  const blob = pdfBlob(await doc.save());
   return {
     files: [
       { name: "text.pdf", blob, size: blob.size, kind: "PDF" },
@@ -946,7 +954,7 @@ async function runTextToPdf(
 export interface AnnotItem {
   /** 0-based page index */
   page: number;
-  type: "text" | "highlight" | "rect" | "ellipse" | "line" | "image";
+  type: "text" | "highlight" | "rect" | "ellipse" | "line" | "draw" | "image";
   /** all coords are PDF user-space (origin bottom-left, y up) */
   text?: string;
   font?: "helvetica" | "helvetica-bold" | "times" | "times-bold" | "courier" | "courier-bold";
@@ -961,6 +969,8 @@ export interface AnnotItem {
   y1?: number;
   x2?: number;
   y2?: number;
+  /** freehand polyline points in PDF user space */
+  points?: { x: number; y: number }[];
   thickness?: number;
   fill?: string | null;
   dataUrl?: string;
@@ -1071,12 +1081,26 @@ async function runApplyAnnotations(
       }
       case "line": {
         page.drawLine({
-          start: { x: item.x1, y: item.y1 },
-          end: { x: item.x2, y: item.y2 },
+          start: { x: item.x1 as number, y: item.y1 as number },
+          end: { x: item.x2 as number, y: item.y2 as number },
           thickness: item.thickness ?? 2,
           color: rgb(r, g, b),
           opacity: item.opacity ?? 1,
         });
+        break;
+      }
+      case "draw": {
+        const pts = item.points ?? [];
+        for (let k = 1; k < pts.length; k++) {
+          page.drawLine({
+            start: { x: pts[k - 1].x, y: pts[k - 1].y },
+            end: { x: pts[k].x, y: pts[k].y },
+            thickness: item.thickness ?? 2,
+            color: rgb(r, g, b),
+            opacity: item.opacity ?? 1,
+            lineCap: 1,
+          });
+        }
         break;
       }
       case "image": {
@@ -1102,9 +1126,7 @@ async function runApplyAnnotations(
   }
   cb.onOverall?.(1);
 
-  const blob = new Blob([await doc.save({ useObjectStreams: true })], {
-    type: "application/pdf",
-  });
+  const blob = pdfBlob(await doc.save({ useObjectStreams: true }));
   return {
     files: [
       {
@@ -1209,9 +1231,7 @@ async function runRedact(
   }
   cb.onOverall?.(1);
 
-  const blob = new Blob([await out.save({ useObjectStreams: true })], {
-    type: "application/pdf",
-  });
+  const blob = pdfBlob(await out.save({ useObjectStreams: true }));
   return {
     files: [
       {

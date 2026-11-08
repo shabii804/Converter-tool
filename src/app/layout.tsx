@@ -16,6 +16,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"
+  ),
   title: "SwiftPDF — Fast, private PDF tools in your browser",
   description:
     "Merge, split, compress, convert, edit and protect PDFs with one click. 100% in-browser processing — your files never leave your device. No sign-up, free forever.",

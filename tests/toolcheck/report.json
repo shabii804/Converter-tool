@@ -2,7 +2,7 @@
   "results": {
     "text-to-pdf: latin multipage": {
       "ok": true,
-      "ms": 206,
+      "ms": 202,
       "detail": "2 pages, 2 page(s) · font: helvetica · 11pt"
     },
     "text-to-pdf: empty input is rejected": {
@@ -12,17 +12,17 @@
     },
     "text-to-pdf: non-Latin without custom font fails honestly": {
       "ok": true,
-      "ms": 0,
+      "ms": 1,
       "detail": "Standard PDF fonts support basic Latin only. Your text contains characters they cannot encode — upload a .ttf/.otf font below and we will embed it."
     },
     "text-to-pdf: CJK renders with uploaded font": {
       "ok": true,
-      "ms": 301,
+      "ms": 338,
       "detail": "built + rendered (extraction saw: \"你好，SwiftPDF 世界\\n\")"
     },
     "text-to-pdf: unbroken 500-char token wraps": {
       "ok": true,
-      "ms": 81,
+      "ms": 82,
       "detail": "1 page(s) · font: courier · 10pt"
     },
     "compress-target: already under target returns file unchanged": {
@@ -32,22 +32,22 @@
     },
     "compress-target: scanned PDF reaches 20KB target": {
       "ok": true,
-      "ms": 504,
+      "ms": 495,
       "detail": "18.7KB reached — Reached 19 KB (target 20 KB) via Raster re-encode at 0.75× / 55%. Pages are images now — text is no longer selectable."
     },
     "compress-target: impossible target fails honestly": {
       "ok": true,
-      "ms": 420,
+      "ms": 387,
       "detail": "Closest possible: 11 KB — the 10 KB target is too aggressive for this document. Try a higher target or the regular Compress tool. (Raster re-encode at 0.5× / 42%)"
     },
     "compress-target: encrypted PDF gives friendly error": {
       "ok": true,
-      "ms": 161,
+      "ms": 166,
       "detail": "\"big-encrypted.pdf\" is password-protected. Unlock it first, then try again."
     },
     "compress-image: jpg shrinks at same dims": {
       "ok": true,
-      "ms": 22,
+      "ms": 47,
       "detail": "15.9KB (was 38.1KB)"
     },
     "compress-image: transparency flattens white for JPG": {
@@ -57,7 +57,7 @@
     },
     "resize-image: by width": {
       "ok": true,
-      "ms": 27,
+      "ms": 12,
       "detail": "400x250"
     },
     "resize-image: percent + png kept": {
@@ -67,32 +67,32 @@
     },
     "convert-image: png → webp": {
       "ok": true,
-      "ms": 46,
+      "ms": 48,
       "detail": "webp ok"
     },
     "convert-image: jpeg → png keeps content": {
       "ok": true,
-      "ms": 30,
+      "ms": 29,
       "detail": "png ok"
     },
     "convert-image: garbage input fails honestly": {
       "ok": true,
-      "ms": 2,
+      "ms": 3,
       "detail": "\"broken.png\" could not be decoded in this browser (unsupported or corrupt image)"
     },
     "pdf-to-png: one PNG per page, rotated page reflected": {
       "ok": true,
-      "ms": 136,
+      "ms": 138,
       "detail": "2 pngs, landscape first page"
     },
     "pdf-to-png: encrypted PDF gives friendly error": {
       "ok": true,
-      "ms": 169,
+      "ms": 161,
       "detail": "\"sample-encrypted.pdf\" is password-protected. Unlock it first, then try again."
     },
     "extract-images: fixture pdf yields the embedded PNG": {
       "ok": true,
-      "ms": 148,
+      "ms": 130,
       "detail": "1 image(s), 800x600"
     },
     "extract-images: scanned sample yields images": {
@@ -102,7 +102,7 @@
     },
     "extract-images: text-only pdf fails honestly": {
       "ok": true,
-      "ms": 109,
+      "ms": 115,
       "detail": "No embedded images were found — this PDF looks like pure text or vector content"
     },
     "extract-text: reading order + page markers": {
@@ -112,52 +112,52 @@
     },
     "extract-text: text-free pdf fails honestly": {
       "ok": true,
-      "ms": 88,
+      "ms": 83,
       "detail": "\"img-only.pdf\" has no text layer — it looks scanned. OCR is on our roadmap; for now use PDF to JPG."
     },
     "extract-text: encrypted pdf gives friendly error": {
       "ok": true,
-      "ms": 172,
+      "ms": 159,
       "detail": "\"sample-encrypted.pdf\" is password-protected. Unlock it first, then try again."
     },
     "edit-pdf: text+image on 90°-rotated page land correctly": {
       "ok": true,
-      "ms": 503,
+      "ms": 481,
       "detail": "angle 90.0° pos ok, image embedded, highlight visible"
     },
     "edit-pdf: empty items rejected": {
       "ok": true,
-      "ms": 1,
+      "ms": 0,
       "detail": "Add at least one annotation first"
     },
     "sign-pdf: signature image lands on upright page": {
       "ok": true,
-      "ms": 285,
+      "ms": 278,
       "detail": "signature embedded + visible"
     },
     "sign-pdf: no signature rejected": {
       "ok": true,
-      "ms": 0,
+      "ms": 1,
       "detail": "Place a signature on the page first"
     },
     "redact-pdf: secret text permanently removed (affected pages only)": {
       "ok": true,
-      "ms": 573,
+      "ms": 556,
       "detail": "secret removed, flatten-by-design verified, neighbors intact"
     },
     "redact-pdf: scope=all flattens every page": {
       "ok": true,
-      "ms": 249,
+      "ms": 241,
       "detail": "all pages flattened"
     },
     "redact-pdf: no boxes rejected": {
       "ok": true,
-      "ms": 1,
+      "ms": 0,
       "detail": "Draw at least one redaction box"
     },
     "redact-pdf: encrypted pdf gives friendly error": {
       "ok": true,
-      "ms": 166,
+      "ms": 163,
       "detail": "\"sample-encrypted.pdf\" is password-protected. Unlock it first, then try again."
     }
   },

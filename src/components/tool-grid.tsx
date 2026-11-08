@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { TOOLS, type ToolCategory } from "@/lib/tools";
 import { useStore } from "@/lib/store";
+import { useToolNav } from "@/lib/use-tool-nav";
 import { useCopy } from "@/lib/i18n";
 import { ToolCard } from "@/components/kit/tool-card";
 import { Tabs } from "@/components/kit/tabs";
@@ -20,7 +21,7 @@ export function ToolGrid() {
   const toggleFavorite = useStore((s) => s.toggleFavorite);
   const recent = useStore((s) => s.recent);
   const clearRecent = useStore((s) => s.clearRecent);
-  const openTool = useStore((s) => s.openTool);
+  const nav = useToolNav();
   const setPalette = useStore((s) => s.setPalette);
   const [query, setQuery] = useState("");
 
@@ -113,7 +114,7 @@ export function ToolGrid() {
               return (
                 <button
                   key={tool.id}
-                  onClick={() => openTool(tool.id)}
+                  onClick={() => nav(tool.id)}
                   className="flex min-h-11 shrink-0 snap-start items-center gap-2 rounded-chip border border-border bg-surface-2 py-1.5 pl-1.5 pr-4 outline-none transition-colors hover:border-border-strong focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <span
@@ -138,7 +139,7 @@ export function ToolGrid() {
               key={tool.id}
               tool={tool}
               index={i}
-              onOpen={openTool}
+              onOpen={nav}
               favorite={favorites.includes(tool.id)}
               onToggleFavorite={() => toggleFavorite(tool.id)}
               favAddLabel={t.grid.favAdd}

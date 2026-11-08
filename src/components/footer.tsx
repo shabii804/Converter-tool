@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useStore } from "@/lib/store";
 import { TOOLS, type ToolCategory } from "@/lib/tools";
 import { useCopy } from "@/lib/i18n";
+import { useToolNav } from "@/lib/use-tool-nav";
 import { Logo } from "./logo";
 import { ShieldCheck } from "lucide-react";
 
@@ -11,7 +12,7 @@ const CAT_ORDER: ToolCategory[] = ["core", "convert", "edit", "security"];
 const POPULAR_IDS = ["merge", "split", "compress", "jpg-to-pdf", "pdf-to-word", "protect"] as const;
 
 export function Footer() {
-  const openTool = useStore((s) => s.openTool);
+  const nav = useToolNav();
   const goHome = useStore((s) => s.goHome);
   const setToolFilter = useStore((s) => s.setToolFilter);
   const view = useStore((s) => s.view);
@@ -64,9 +65,9 @@ export function Footer() {
               if (!tool) return null;
               return (
                 <li key={id}>
-                  <button onClick={() => openTool(id)} className={linkCls}>
+                  <Link href={`/tool/${id}`} className={linkCls}>
                     {tool.name}
-                  </button>
+                  </Link>
                 </li>
               );
             })}

@@ -91,6 +91,10 @@ function bytesOf(blob: Blob): Promise<Uint8Array> {
   return blob.arrayBuffer().then((b) => new Uint8Array(b));
 }
 
+/** pdf-lib save output → Blob (TypeScript-safe view) */
+const pdfBlob = (bytes: Uint8Array): Blob =>
+  new Blob([bytes.slice().buffer as ArrayBuffer], { type: "application/pdf" });
+
 async function makeAlphaPng(): Promise<Blob> {
   const c = document.createElement("canvas");
   c.width = 800;
@@ -145,7 +149,8 @@ async function makeRotatedPdf(): Promise<Blob> {
   p1.setRotation(degrees(90));
   const p2 = doc.addPage([595.28, 841.89]);
   p2.drawText("PLAIN SECOND PAGE", { x: 56, y: 785.89, size: 12, font });
-  return new Blob([await doc.save()], { type: "application/pdf" });
+  const blob = pdfBlob(await doc.save());
+  return blob;
 }
 
 async function makeRedactSrcPdf(): Promise<{ blob: Blob; boxW: number }> {
@@ -159,7 +164,7 @@ async function makeRedactSrcPdf(): Promise<{ blob: Blob; boxW: number }> {
   p1.drawText("This line stays readable.", { x: 56, y: 750, size: 11, font: fontN });
   const p2 = doc.addPage([595.28, 841.89]);
   p2.drawText("PAGE TWO IS CLEAN", { x: 56, y: 785.89, size: 12, font });
-  const blob = new Blob([await doc.save()], { type: "application/pdf" });
+  const blob = pdfBlob(await doc.save());
   return { blob, boxW: tw };
 }
 
@@ -170,7 +175,7 @@ async function makeEmbeddedImgPdf(alphaPng: Blob): Promise<Blob> {
   const page = doc.addPage([595.28, 841.89]);
   page.drawText("has image", { x: 56, y: 700, size: 12, font });
   page.drawImage(png, { x: 100, y: 400, width: 300, height: 225 });
-  return new Blob([await doc.save()], { type: "application/pdf" });
+  return pdfBlob(await doc.save());
 }
 
 /** image-only page — no text layer at all (extract-text must fail honestly) */
@@ -179,7 +184,7 @@ async function makeImageOnlyPdf(alphaPng: Blob): Promise<Blob> {
   const png = await doc.embedPng(new Uint8Array(await alphaPng.arrayBuffer()));
   const page = doc.addPage([595.28, 841.89]);
   page.drawImage(png, { x: 60, y: 300, width: 480, height: 360 });
-  return new Blob([await doc.save()], { type: "application/pdf" });
+  return pdfBlob(await doc.save());
 }
 
 /** a genuinely large password-protected PDF (> 10 KB) via Cantoo encryption */
@@ -212,7 +217,7 @@ async function makeBigEncryptedPdf(): Promise<Blob> {
       documentAssembly: false,
     },
   });
-  return new Blob([await doc.save()], { type: "application/pdf" });
+  return pdfBlob(await doc.save());
 }
 
 async function fetchSample(name: string): Promise<File> {
@@ -411,7 +416,7 @@ export async function runAll(): Promise<Record<string, unknown>> {
   await test("compress-target: already under target returns file unchanged", async () => {
     const orig = new Uint8Array(await textPdf.arrayBuffer());
     const out = await run("compress-target", [textPdf], { targetKB: 100 });
-    assert(out.note?.includes("Already under"), `note: ${out.note}`);
+    assert(out.note?.includes("Already under") ?? false, `note: ${out.note}`);
     assert(out.files[0].name === "sample-text.pdf", "keeps original name");
     assert(out.files[0].size === orig.length, "byte-identical size");
     return out.note ?? "";
@@ -714,7 +719,7 @@ export async function runAll(): Promise<Record<string, unknown>> {
     assert(out.files[0].name.endsWith("-signed.pdf"), "naming");
     const outBytes = await bytesOf(out.files[0].blob);
     const imgOut = await run("extract-images", [
-      new File([outBytes], "signed.pdf", { type: "application/pdf" }),
+      new File([outBytes.slice().buffer as ArrayBuffer], "signed.pdf", { type: "application/pdf" }),
     ], { format: "png" });
     assert(imgOut.files.length >= 1, "signature embedded");
     // visual: blue ink visible near placement (PDF y 640..688 → canvas y ~154..202)

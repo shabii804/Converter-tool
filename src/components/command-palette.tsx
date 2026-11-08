@@ -12,14 +12,15 @@ import {
 } from "@/components/ui/command";
 import { TOOLS, CATEGORIES } from "@/lib/tools";
 import { useStore } from "@/lib/store";
+import { useToolNav } from "@/lib/use-tool-nav";
 import { useTheme } from "next-themes";
 import { Moon, Sun, Home, Palette } from "lucide-react";
 
 export function CommandPalette() {
   const open = useStore((s) => s.paletteOpen);
   const setPalette = useStore((s) => s.setPalette);
-  const openTool = useStore((s) => s.openTool);
   const goHome = useStore((s) => s.goHome);
+  const nav = useToolNav();
   const { theme, setTheme } = useTheme();
 
   useEffect(() => {
@@ -48,7 +49,7 @@ export function CommandPalette() {
             {TOOLS.filter((t) => t.category === cat.id).map((t) => (
               <CommandItem
                 key={t.id}
-                onSelect={() => run(() => openTool(t.id))}
+                onSelect={() => run(() => nav(t.id))}
               >
                 <t.icon className="mr-2 size-4 text-primary" />
                 <span>{t.name}</span>

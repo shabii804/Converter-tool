@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { useStore } from "@/lib/store";
 import { toolById } from "@/lib/tools";
+import { useToolNav } from "@/lib/use-tool-nav";
 import { executeRun } from "@/lib/pipeline";
 import { useCopy } from "@/lib/i18n";
 import { Button } from "@/components/kit/button";
@@ -24,7 +25,7 @@ export function Hero() {
   const files = useStore((s) => s.files);
   const suggestion = useStore((s) => s.suggestion);
   const removeFile = useStore((s) => s.removeFile);
-  const openTool = useStore((s) => s.openTool);
+  const nav = useToolNav();
   const pushRecent = useStore((s) => s.pushRecent);
   const reduce = useReducedMotion();
   const t = useCopy();
@@ -158,7 +159,7 @@ export function Hero() {
                           {}
                         );
                       } else {
-                        openTool(suggestion.primary);
+                        nav(suggestion.primary);
                       }
                     }}
                     size="lg"
@@ -174,7 +175,7 @@ export function Hero() {
                         return (
                           <button
                             key={alt}
-                            onClick={() => openTool(alt)}
+                            onClick={() => nav(alt)}
                             className="flex min-h-11 items-center rounded-control border border-border px-3 py-2 text-[13px] font-medium text-fg-muted transition-colors hover:border-border-strong hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
                           >
                             {altTool.name}

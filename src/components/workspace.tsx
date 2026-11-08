@@ -14,6 +14,7 @@ import { IconTile } from "@/components/kit/icon-tile";
 import { notify } from "@/components/kit/toast";
 import { EmptyPagesIllustration } from "@/components/illustrations";
 import { PageThumbs } from "./page-thumbs";
+import { AnnotationEditor } from "./annotation-editor";
 import { formatBytes } from "@/lib/format";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -85,6 +86,32 @@ interface Options {
   order: number[];
   rotations: Record<number, number>;
   organizeDeleted: Set<number>;
+  // compress-target
+  targetKB: number;
+  // image tools
+  imgQuality: number;
+  imgFormat: "jpeg" | "webp";
+  imgMaxDim: number;
+  resizeMode: "width" | "height" | "percent" | "fit";
+  resizeValue: number;
+  resizeFormat: "keep" | "jpeg" | "png" | "webp";
+  convertFormat: "jpeg" | "png" | "webp";
+  // pdf-to-png
+  pngScale: 1 | 2 | 3;
+  // extract-images
+  extractFormat: "png" | "jpeg";
+  // extract-text
+  pageMarkers: boolean;
+  // text-to-pdf
+  ttfText: string;
+  ttfFont: "helvetica" | "times" | "courier";
+  ttfSize: number;
+  ttfPageSize: "a4" | "letter";
+  ttfMargin: number;
+  ttfCustomFont: File | null;
+  // annotation editor (edit-pdf / sign-pdf / redact-pdf)
+  editorOpts: Record<string, unknown>;
+  editorCount: number;
 }
 
 const defaultOptions = (): Options => ({
@@ -120,6 +147,25 @@ const defaultOptions = (): Options => ({
   order: [],
   rotations: {},
   organizeDeleted: new Set(),
+  targetKB: 200,
+  imgQuality: 0.6,
+  imgFormat: "jpeg",
+  imgMaxDim: 0,
+  resizeMode: "width",
+  resizeValue: 1280,
+  resizeFormat: "keep",
+  convertFormat: "webp",
+  pngScale: 2,
+  extractFormat: "png",
+  pageMarkers: true,
+  ttfText: "",
+  ttfFont: "helvetica",
+  ttfSize: 11,
+  ttfPageSize: "a4",
+  ttfMargin: 56,
+  ttfCustomFont: null,
+  editorOpts: {},
+  editorCount: 0,
 });
 
 /** Friendly large-file threshold (honest copy, no fake limits). */
@@ -154,8 +200,19 @@ export function Workspace() {
       if (opts.splitMode === "extract" && opts.splitSelected.size === 0)
         return false;
     }
+    if (tool.id === "edit-pdf" && opts.editorCount === 0) return false;
+    if (tool.id === "sign-pdf" && opts.editorCount === 0) return false;
+    if (tool.id === "redact-pdf" && opts.editorCount === 0) return false;
+    if (tool.id === "text-to-pdf" && !opts.ttfText.trim()) return false;
     return true;
   }, [tool, files, opts]);
+
+  const onEditorChange = useCallback(
+    (engineOpts: Record<string, unknown>, count: number) => {
+      setOpts((o) => ({ ...o, editorOpts: engineOpts, editorCount: count }));
+    },
+    []
+  );
 
   const onRun = useCallback(async () => {
     if (!tool || !canRun || running) return;
@@ -189,8 +246,28 @@ export function Workspace() {
       </div>
 
       <div className="flex flex-col gap-6 lg:flex-row lg:gap-8">
-        {/* left: files */}
+        {/* left: files / info */}
         <div className="w-full shrink-0 lg:w-[360px]">
+          {tool.input === "none" && (
+            <Card className="p-6">
+              <div className="flex flex-col items-center gap-3 py-6 text-center">
+                <IconTile icon={tool.icon} category={tool.category} size="lg" />
+                <p className="text-sm font-bold">Type or paste your text</p>
+                <p className="max-w-64 text-[13px] leading-relaxed text-fg-muted">
+                  Use the options panel — your text becomes a paginated PDF right
+                  here on this device. Nothing is uploaded.
+                </p>
+              </div>
+              <div className="mt-2 flex items-center gap-2.5 rounded-control border border-success/25 bg-success/[0.07] px-3.5 py-3">
+                <Eye className="size-4 shrink-0 text-success" />
+                <p className="text-[13px] leading-snug text-fg-muted">
+                  Processing happens <b className="text-foreground">on this device</b>.
+                  Nothing is uploaded.
+                </p>
+              </div>
+            </Card>
+          )}
+          {tool.input !== "none" && (
           <Card className="p-6">
             <div className="mb-4 flex items-center justify-between">
               <p className="text-sm font-bold">
@@ -274,13 +351,20 @@ export function Workspace() {
               </p>
             </div>
           </Card>
+          )}
         </div>
 
         {/* right: options */}
         <div className="min-w-0 flex-1">
           <Card className="p-6">
             <p className="mb-5 text-sm font-bold">Options</p>
-            <OptionsPanel toolId={tool.id} opts={opts} set={set} files={files} />
+            <OptionsPanel
+              toolId={tool.id}
+              opts={opts}
+              set={set}
+              files={files}
+              onEditorChange={onEditorChange}
+            />
           </Card>
 
           {/* run button — sticky on mobile so it is always reachable */}
@@ -382,6 +466,44 @@ function buildOptions(
             : [],
         rotations: opts.rotations,
       };
+    case "compress-target":
+      return { targetKB: opts.targetKB };
+    case "compress-image":
+      return {
+        format: opts.imgFormat,
+        quality: opts.imgQuality,
+        maxDimension: opts.imgMaxDim,
+      };
+    case "resize-image":
+      return {
+        mode: opts.resizeMode,
+        value: opts.resizeValue,
+        format: opts.resizeFormat,
+      };
+    case "convert-image":
+      return {
+        format: opts.convertFormat,
+        quality: opts.imgQuality,
+      };
+    case "pdf-to-png":
+      return { scale: opts.pngScale };
+    case "extract-images":
+      return { format: opts.extractFormat };
+    case "extract-text":
+      return { pageMarkers: opts.pageMarkers };
+    case "text-to-pdf":
+      return {
+        text: opts.ttfText,
+        fontFamily: opts.ttfFont,
+        fontSize: opts.ttfSize,
+        pageSize: opts.ttfPageSize,
+        margin: opts.ttfMargin,
+        customFont: opts.ttfCustomFont,
+      };
+    case "edit-pdf":
+    case "sign-pdf":
+    case "redact-pdf":
+      return opts.editorOpts;
     default:
       return {};
   }
@@ -403,6 +525,14 @@ function hint(toolId: string, opts: Options, files: StoreFile[]): string {
     if (opts.splitMode === "extract" && opts.splitSelected.size === 0)
       return "Select at least one page below";
   }
+  if (toolId === "edit-pdf" && opts.editorCount === 0)
+    return "Add at least one annotation — text, highlight, shape, drawing or image";
+  if (toolId === "sign-pdf" && opts.editorCount === 0)
+    return "Create a signature and place it on the page";
+  if (toolId === "redact-pdf" && opts.editorCount === 0)
+    return "Draw at least one redaction box over the text you want removed";
+  if (toolId === "text-to-pdf" && !opts.ttfText.trim())
+    return "Type or paste some text first";
   return "";
 }
 
@@ -413,11 +543,13 @@ function OptionsPanel({
   opts,
   set,
   files,
+  onEditorChange,
 }: {
   toolId: string;
   opts: Options;
   set: <K extends keyof Options>(k: K, v: Options[K]) => void;
   files: StoreFile[];
+  onEditorChange: (engineOpts: Record<string, unknown>, count: number) => void;
 }) {
   switch (toolId) {
     case "merge":
@@ -826,6 +958,387 @@ function OptionsPanel({
             files you own.
           </p>
         </div>
+      );
+
+    case "compress-target":
+      return (
+        <div className="space-y-3">
+          {(
+            [
+              { v: 100, t: "100 KB" },
+              { v: 200, t: "200 KB" },
+              { v: 500, t: "500 KB" },
+              { v: 1024, t: "1 MB" },
+            ] as const
+          ).map((o) => (
+            <button
+              key={o.v}
+              onClick={() => set("targetKB", o.v)}
+              className={`flex w-full items-center justify-between rounded-control border p-4 text-left transition-all ${
+                opts.targetKB === o.v
+                  ? "border-ring bg-primary/[0.04] shadow-sm"
+                  : "border-border hover:border-border-strong"
+              }`}
+            >
+              <span className="text-sm font-semibold">{o.t}</span>
+              {opts.targetKB === o.v && (
+                <span className="flex size-4.5 items-center justify-center rounded-full border-2 border-primary bg-primary">
+                  <span className="size-1.5 rounded-full bg-white" />
+                </span>
+              )}
+            </button>
+          ))}
+          <div className="flex items-center gap-3 rounded-control border border-border p-4">
+            <Label className="shrink-0 text-[13px] font-medium">Custom</Label>
+            <Input
+              type="number"
+              min={10}
+              max={100000}
+              value={opts.targetKB}
+              onChange={(e) => set("targetKB", Math.max(10, Number(e.target.value) || 10))}
+              className="w-32"
+              aria-label="Custom target size in KB"
+            />
+            <span className="text-[13px] text-fg-muted">KB</span>
+          </div>
+          <p className="text-[13px] leading-relaxed text-fg-faint">
+            A lossless re-save is tried first. To hit an exact size, pages are
+            then re-encoded as images — text stops being selectable. For a
+            text-preserving shrink, use the regular Compress tool.
+          </p>
+        </div>
+      );
+
+    case "compress-image":
+      return (
+        <div className="space-y-5">
+          <div>
+            <Label className="mb-2 block text-[13px] font-medium">
+              Quality · {Math.round(opts.imgQuality * 100)}%
+            </Label>
+            <Slider
+              min={20}
+              max={95}
+              step={5}
+              value={[Math.round(opts.imgQuality * 100)]}
+              onValueChange={([v]) => set("imgQuality", v / 100)}
+            />
+          </div>
+          <TwoCol>
+            <div>
+              <Label className="mb-2 block text-[13px] font-medium">Output format</Label>
+              <SegButtons
+                value={opts.imgFormat}
+                onChange={(v) => set("imgFormat", v as Options["imgFormat"])}
+                options={[
+                  { v: "jpeg", label: "JPG" },
+                  { v: "webp", label: "WebP" },
+                ]}
+              />
+            </div>
+            <div>
+              <Label className="mb-2 block text-[13px] font-medium">Max dimension</Label>
+              <Select
+                value={String(opts.imgMaxDim)}
+                onValueChange={(v) => set("imgMaxDim", Number(v))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">Keep original size</SelectItem>
+                  <SelectItem value="3840">Downscale to 4K (3840px)</SelectItem>
+                  <SelectItem value="2048">Downscale to 2048px</SelectItem>
+                  <SelectItem value="1080">Downscale to 1080px</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </TwoCol>
+          <p className="text-[13px] leading-relaxed text-fg-faint">
+            JPG output fills transparent areas with white. WebP keeps
+            transparency and usually compresses further.
+          </p>
+        </div>
+      );
+
+    case "resize-image":
+      return (
+        <div className="space-y-5">
+          <SegButtons
+            value={opts.resizeMode}
+            onChange={(v) => set("resizeMode", v as Options["resizeMode"])}
+            options={[
+              { v: "width", label: "Width" },
+              { v: "height", label: "Height" },
+              { v: "percent", label: "Percent" },
+              { v: "fit", label: "Fit in box" },
+            ]}
+          />
+          <div>
+            <Label className="mb-2 block text-[13px] font-medium">
+              {opts.resizeMode === "percent" ? "Scale" : "Size in pixels"}
+            </Label>
+            <div className="flex items-center gap-3">
+              <Input
+                type="number"
+                min={opts.resizeMode === "percent" ? 1 : 8}
+                max={opts.resizeMode === "percent" ? 500 : 20000}
+                value={opts.resizeValue}
+                onChange={(e) =>
+                  set("resizeValue", Math.max(1, Number(e.target.value) || 1))
+                }
+                className="w-32"
+              />
+              <span className="text-[13px] text-fg-muted">
+                {opts.resizeMode === "percent"
+                  ? "% of original"
+                  : opts.resizeMode === "fit"
+                    ? "px box (largest side)"
+                    : "px"}
+              </span>
+            </div>
+          </div>
+          <div>
+            <Label className="mb-2 block text-[13px] font-medium">Output format</Label>
+            <Select
+              value={opts.resizeFormat}
+              onValueChange={(v) => set("resizeFormat", v as Options["resizeFormat"])}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="keep">Keep original</SelectItem>
+                <SelectItem value="jpeg">JPG</SelectItem>
+                <SelectItem value="png">PNG</SelectItem>
+                <SelectItem value="webp">WebP</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="mt-2 text-[13px] leading-relaxed text-fg-faint">
+              GIF and BMP inputs are saved as PNG; aspect ratio is always kept.
+            </p>
+          </div>
+        </div>
+      );
+
+    case "convert-image":
+      return (
+        <div className="space-y-5">
+          <SegButtons
+            value={opts.convertFormat}
+            onChange={(v) => set("convertFormat", v as Options["convertFormat"])}
+            options={[
+              { v: "jpeg", label: "JPG" },
+              { v: "png", label: "PNG" },
+              { v: "webp", label: "WebP" },
+            ]}
+          />
+          {opts.convertFormat !== "png" && (
+            <div>
+              <Label className="mb-2 block text-[13px] font-medium">
+                Quality · {Math.round(opts.imgQuality * 100)}%
+              </Label>
+              <Slider
+                min={20}
+                max={95}
+                step={5}
+                value={[Math.round(opts.imgQuality * 100)]}
+                onValueChange={([v]) => set("imgQuality", v / 100)}
+              />
+            </div>
+          )}
+          <p className="text-[13px] leading-relaxed text-fg-faint">
+            JPG fills transparent areas with white. Animated GIFs export their
+            first frame.
+          </p>
+        </div>
+      );
+
+    case "pdf-to-png":
+      return (
+        <div className="space-y-3">
+          <SegButtons
+            value={String(opts.pngScale)}
+            onChange={(v) => set("pngScale", Number(v) as 1 | 2 | 3)}
+            options={[
+              { v: "1", label: "Standard · 72 DPI" },
+              { v: "2", label: "High · 144 DPI" },
+              { v: "3", label: "Max · 216 DPI" },
+            ]}
+          />
+          <p className="text-[13px] leading-relaxed text-fg-faint">
+            Lossless PNG per page. Very large pages are downscaled to stay
+            within browser canvas limits.
+          </p>
+        </div>
+      );
+
+    case "extract-images":
+      return (
+        <div className="space-y-3">
+          <SegButtons
+            value={opts.extractFormat}
+            onChange={(v) => set("extractFormat", v as Options["extractFormat"])}
+            options={[
+              { v: "png", label: "PNG · keeps transparency" },
+              { v: "jpeg", label: "JPG · smaller files" },
+            ]}
+          />
+          <p className="text-[13px] leading-relaxed text-fg-faint">
+            Embedded images are pulled out and re-encoded. Purely
+            text/vector PDFs have no images to extract — we will tell you.
+          </p>
+        </div>
+      );
+
+    case "extract-text":
+      return (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between rounded-control border border-border p-4">
+            <Label className="text-[13px] font-medium">
+              Add page markers (----- Page 2 -----)
+            </Label>
+            <Switch
+              checked={opts.pageMarkers}
+              onCheckedChange={(v) => set("pageMarkers", v)}
+            />
+          </div>
+          <p className="text-[13px] leading-relaxed text-fg-faint">
+            Extracts the PDF&apos;s text layer in reading order. Scanned pages
+            have no text layer — we will say so instead of returning an empty
+            file. OCR is on our roadmap.
+          </p>
+        </div>
+      );
+
+    case "text-to-pdf":
+      return (
+        <div className="space-y-5">
+          <div>
+            <Label className="mb-2 block text-[13px] font-medium">Your text</Label>
+            <textarea
+              value={opts.ttfText}
+              onChange={(e) => set("ttfText", e.target.value)}
+              rows={10}
+              placeholder="Paste or type anything — it becomes a paginated PDF…"
+              className="w-full resize-y rounded-control border border-border bg-background p-3 text-sm leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="Text to convert"
+            />
+            <p className="mt-1.5 text-micro text-fg-faint">
+              {opts.ttfText.length.toLocaleString()} characters
+            </p>
+          </div>
+          <TwoCol>
+            <div>
+              <Label className="mb-2 block text-[13px] font-medium">Font</Label>
+              <Select
+                value={opts.ttfFont}
+                onValueChange={(v) => set("ttfFont", v as Options["ttfFont"])}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="helvetica">Helvetica</SelectItem>
+                  <SelectItem value="times">Times</SelectItem>
+                  <SelectItem value="courier">Courier</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="mb-2 block text-[13px] font-medium">Page size</Label>
+              <Select
+                value={opts.ttfPageSize}
+                onValueChange={(v) => set("ttfPageSize", v as Options["ttfPageSize"])}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="a4">A4</SelectItem>
+                  <SelectItem value="letter">US Letter</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </TwoCol>
+          <div>
+            <Label className="mb-2 block text-[13px] font-medium">
+              Font size · {opts.ttfSize}pt
+            </Label>
+            <Slider
+              min={8}
+              max={28}
+              step={1}
+              value={[opts.ttfSize]}
+              onValueChange={([v]) => set("ttfSize", v)}
+            />
+          </div>
+          <div>
+            <Label className="mb-2 block text-[13px] font-medium">
+              Margin · {opts.ttfMargin}pt
+            </Label>
+            <Slider
+              min={24}
+              max={96}
+              step={8}
+              value={[opts.ttfMargin]}
+              onValueChange={([v]) => set("ttfMargin", v)}
+            />
+          </div>
+          <div>
+            <Label className="mb-2 block text-[13px] font-medium">
+              Custom font for non-Latin text (.ttf / .otf)
+            </Label>
+            <input
+              type="file"
+              accept=".ttf,.otf,font/ttf,font/otf"
+              onChange={(e) => set("ttfCustomFont", e.target.files?.[0] ?? null)}
+              aria-label="Upload a custom font"
+              className="block w-full text-[13px] text-fg-muted file:mr-3 file:min-h-11 file:rounded-control file:border file:border-border file:bg-background file:px-4 file:text-[13px] file:font-semibold file:text-foreground"
+            />
+            {opts.ttfCustomFont && (
+              <p className="mt-1.5 text-micro text-fg-faint">
+                Using {opts.ttfCustomFont.name} — it will be embedded (and
+                subset) into the PDF.
+              </p>
+            )}
+            <p className="mt-2 text-[13px] leading-relaxed text-fg-faint">
+              Standard PDF fonts cover basic Latin. For Chinese, Arabic,
+              Cyrillic and other scripts, upload a font file — it never leaves
+              this device either.
+            </p>
+          </div>
+        </div>
+      );
+
+    case "edit-pdf":
+      return files[0] ? (
+        <AnnotationEditor file={files[0].file} mode="edit" onChange={onEditorChange} />
+      ) : (
+        <p className="rounded-control bg-surface-1 p-4 text-[13px] text-fg-muted">
+          Add a PDF on the left, then edit it here — text, highlights, shapes,
+          freehand drawings and images.
+        </p>
+      );
+
+    case "sign-pdf":
+      return files[0] ? (
+        <AnnotationEditor file={files[0].file} mode="sign" onChange={onEditorChange} />
+      ) : (
+        <p className="rounded-control bg-surface-1 p-4 text-[13px] text-fg-muted">
+          Add a PDF on the left, then draw, type or upload a signature and
+          place it anywhere.
+        </p>
+      );
+
+    case "redact-pdf":
+      return files[0] ? (
+        <AnnotationEditor file={files[0].file} mode="redact" onChange={onEditorChange} />
+      ) : (
+        <p className="rounded-control bg-surface-1 p-4 text-[13px] text-fg-muted">
+          Add a PDF on the left, then draw black boxes over the text you want
+          permanently removed.
+        </p>
       );
 
     default:

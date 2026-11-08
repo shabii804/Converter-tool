@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useStore } from "@/lib/store";
 import { TOOLS, type ToolCategory } from "@/lib/tools";
 import { useCopy, LANGS } from "@/lib/i18n";
+import { useToolNav } from "@/lib/use-tool-nav";
 import { Button } from "@/components/kit/button";
 import { IconTile } from "@/components/kit/icon-tile";
 import { Modal, ModalContent } from "@/components/kit/modal";
@@ -20,7 +21,7 @@ export function Header() {
   const { resolvedTheme, setTheme } = useTheme();
   const setPalette = useStore((s) => s.setPalette);
   const goHome = useStore((s) => s.goHome);
-  const openTool = useStore((s) => s.openTool);
+  const nav = useToolNav();
   const lang = useStore((s) => s.lang);
   const setLang = useStore((s) => s.setLang);
   const t = useCopy();
@@ -69,7 +70,7 @@ export function Header() {
   const pickTool = (id: string) => {
     setMegaOpen(false);
     setSheetOpen(false);
-    openTool(id);
+    nav(id);
   };
 
   const pickCategory = (cat: ToolCategory) => {
@@ -119,7 +120,7 @@ export function Header() {
             <div
               role="group"
               aria-label={t.mega.aria}
-              className="absolute left-0 top-[calc(100%+10px)] z-50 grid w-[min(880px,calc(100vw-32px))] grid-cols-2 gap-x-6 gap-y-5 rounded-card border border-border bg-surface-1 p-6 shadow-lg lg:grid-cols-4"
+              className="absolute left-0 top-[calc(100%+10px)] z-50 grid max-h-[78dvh] w-[min(880px,calc(100vw-32px))] grid-cols-2 gap-x-6 gap-y-5 overflow-y-auto rounded-card border border-border bg-surface-1 p-6 shadow-lg lg:grid-cols-4"
             >
               {CAT_ORDER.map((cat) => {
                 const meta = categoryMeta(cat);
