@@ -196,7 +196,7 @@ export function Workspace({ hideHeader }: { hideHeader?: boolean }) {
 
   const [opts, setOpts] = useState<Options>(defaultOptions);
   const [running, setRunning] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const moreInputRef = useRef<HTMLInputElement>(null);
 
   /* consume a preset seeded by an intent page once (user-adjustable after) */
   useEffect(() => {
@@ -347,12 +347,33 @@ export function Workspace({ hideHeader }: { hideHeader?: boolean }) {
                 ))}
                 {files.length < tool.maxFiles && (
                   <button
-                    onClick={() => inputRef.current?.click()}
-                    className="flex w-full items-center justify-center gap-1.5 rounded-control border border-dashed border-border-strong py-3 text-[13px] font-medium text-fg-muted transition-colors hover:border-ring hover:text-primary"
+                    onClick={() => moreInputRef.current?.click()}
+                    className="flex w-full items-center justify-center gap-1.5 rounded-control border border-dashed border-border-strong py-3 text-[13px] font-medium text-fg-muted transition-colors hover:border-ring hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     Add more files
                   </button>
                 )}
+                <input
+                  ref={moreInputRef}
+                  type="file"
+                  className="hidden"
+                  aria-hidden="true"
+                  tabIndex={-1}
+                  accept={tool.accept || undefined}
+                  multiple={tool.maxFiles > 1}
+                  onChange={(e) => {
+                    const list = Array.from(e.target.files || []);
+                    if (list.length) {
+                      const { rejected } = addFiles(list);
+                      if (rejected > 0)
+                        notify.warning(
+                          `${rejected} file(s) skipped`,
+                          `Wrong type for ${tool.name}`
+                        );
+                    }
+                    e.target.value = "";
+                  }}
+                />
               </div>
             )}
 
@@ -940,8 +961,9 @@ function OptionsPanel({
       return (
         <div className="space-y-5">
           <div>
-            <Label className="mb-2 block text-[13px] font-medium">Password</Label>
+            <Label htmlFor="protect-password" className="mb-2 block text-[13px] font-medium">Password</Label>
             <Input
+              id="protect-password"
               type="password"
               value={opts.password}
               onChange={(e) => set("password", e.target.value)}
@@ -949,10 +971,11 @@ function OptionsPanel({
             />
           </div>
           <div>
-            <Label className="mb-2 block text-[13px] font-medium">
+            <Label htmlFor="protect-confirm" className="mb-2 block text-[13px] font-medium">
               Confirm password
             </Label>
             <Input
+              id="protect-confirm"
               type="password"
               value={opts.confirm}
               onChange={(e) => set("confirm", e.target.value)}
