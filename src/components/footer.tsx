@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useStore } from "@/lib/store";
 import { TOOLS, type ToolCategory } from "@/lib/tools";
-import { useCopy } from "@/lib/i18n";
+import { useCopy, useLocaleHref } from "@/lib/i18n-hooks";
 import { useToolNav } from "@/lib/use-tool-nav";
+import { InstallAppButton } from "./install-prompt";
 import { Logo } from "./logo";
 import { ShieldCheck } from "lucide-react";
 
@@ -13,6 +14,7 @@ const POPULAR_IDS = ["merge", "split", "compress", "jpg-to-pdf", "pdf-to-word", 
 
 export function Footer() {
   const nav = useToolNav();
+  const localeHref = useLocaleHref();
   const goHome = useStore((s) => s.goHome);
   const setToolFilter = useStore((s) => s.setToolFilter);
   const view = useStore((s) => s.view);
@@ -65,7 +67,7 @@ export function Footer() {
               if (!tool) return null;
               return (
                 <li key={id}>
-                  <Link href={`/tool/${id}`} className={linkCls}>
+                  <Link href={localeHref(`/tool/${id}`)} className={linkCls}>
                     {tool.name}
                   </Link>
                 </li>
@@ -97,7 +99,7 @@ export function Footer() {
           </p>
           <ul className="mt-3 space-y-0.5">
             <li>
-              <Link href="/blog" className={linkCls}>
+              <Link href={localeHref("/blog")} className={linkCls}>
                 {t.nav.blog}
               </Link>
             </li>
@@ -112,7 +114,7 @@ export function Footer() {
               </button>
             </li>
             <li>
-              <Link href="/design" className={linkCls}>
+              <Link href={localeHref("/design")} className={linkCls}>
                 Design system
               </Link>
             </li>
@@ -121,8 +123,11 @@ export function Footer() {
       </div>
 
       <div className="border-t border-border-subtle">
-        <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-5 text-micro text-fg-faint sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <p>{t.footer.copyright}</p>
+        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-5 text-micro text-fg-faint sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+            <p>{t.footer.copyright}</p>
+            <InstallAppButton />
+          </div>
           <p>{t.footer.bottom}</p>
         </div>
       </div>

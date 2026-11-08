@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { TOOLS, type ToolCategory } from "@/lib/tools";
 import { useStore } from "@/lib/store";
 import { useToolNav } from "@/lib/use-tool-nav";
-import { useCopy } from "@/lib/i18n";
+import { useCopy } from "@/lib/i18n-hooks";
 import { ToolCard } from "@/components/kit/tool-card";
 import { Tabs } from "@/components/kit/tabs";
 import { categoryMeta } from "@/components/kit/category";

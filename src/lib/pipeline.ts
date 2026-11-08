@@ -1,6 +1,5 @@
 import { useStore } from "./store";
 import { runTool, type EngineResult } from "./pdf-engine";
-import { isExtraTool, runExtraTool } from "./extra-engine";
 import { toast } from "sonner";
 import { toolById } from "./tools";
 
@@ -28,6 +27,8 @@ export async function executeRun(
   };
 
   try {
+    /* code-split: the extra engine (Tier-1 tools) loads only when used */
+    const { isExtraTool, runExtraTool } = await import("./extra-engine");
     const result: EngineResult = isExtraTool(toolId)
       ? await runExtraTool(toolId, entries, opts, {
           onOverall: (p) => {

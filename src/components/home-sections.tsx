@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
-import { useCopy } from "@/lib/i18n";
+import { useCopy } from "@/lib/i18n-hooks";
 import {
   Accordion,
   AccordionItem,

@@ -13,6 +13,7 @@ import {
 import { TOOLS, CATEGORIES } from "@/lib/tools";
 import { useStore } from "@/lib/store";
 import { useToolNav } from "@/lib/use-tool-nav";
+import { useLocale, useLocaleHref } from "@/lib/i18n-hooks";
 import { useTheme } from "next-themes";
 import { Moon, Sun, Home, Palette } from "lucide-react";
 
@@ -21,6 +22,8 @@ export function CommandPalette() {
   const setPalette = useStore((s) => s.setPalette);
   const goHome = useStore((s) => s.goHome);
   const nav = useToolNav();
+  const locale = useLocale();
+  const localeHref = useLocaleHref();
   const { theme, setTheme } = useTheme();
 
   useEffect(() => {
@@ -78,7 +81,7 @@ export function CommandPalette() {
           </CommandItem>
           <CommandItem
             onSelect={() => run(() => {
-              window.location.assign("/design");
+              window.location.assign(localeHref("/design"));
             })}
           >
             <Palette className="mr-2 size-4" />

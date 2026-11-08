@@ -53,6 +53,8 @@ interface AppState {
   stats: RunStats | null;
   errorMsg: string | null;
   paletteOpen: boolean;
+  /** preset seeded by intent pages (consumed once by Workspace on mount) */
+  pendingPreset: Record<string, unknown> | null;
 
   /** UI language (persisted locally) */
   lang: Lang;
@@ -159,6 +161,7 @@ export const useStore = create<AppState>((set, get) => ({
   stats: null,
   errorMsg: null,
   paletteOpen: false,
+  pendingPreset: null,
 
   lang: "en",
   toolFilter: "all",

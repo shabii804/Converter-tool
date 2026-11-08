@@ -14,7 +14,9 @@ import { IconTile } from "@/components/kit/icon-tile";
 import { notify } from "@/components/kit/toast";
 import { EmptyPagesIllustration } from "@/components/illustrations";
 import { PageThumbs } from "./page-thumbs";
-import { AnnotationEditor } from "./annotation-editor";
+import dynamic from "next/dynamic";
+import { RelatedTools } from "./related-tools";
+import { ShareButton } from "./share-button";
 import { formatBytes } from "@/lib/format";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -171,9 +173,20 @@ const defaultOptions = (): Options => ({
 /** Friendly large-file threshold (honest copy, no fake limits). */
 const LARGE_FILE_BYTES = 100 * 1024 * 1024;
 
+/** code-split: the annotation editor (+ its fonts) loads only when a tool needs it */
+const AnnotationEditor = dynamic(
+  () => import("./annotation-editor").then((m) => m.AnnotationEditor),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-72 animate-pulse rounded-card bg-surface-2" aria-hidden="true" />
+    ),
+  }
+);
+
 /* ---------- main component ---------- */
 
-export function Workspace() {
+export function Workspace({ hideHeader }: { hideHeader?: boolean }) {
   const toolId = useStore((s) => s.toolId)!;
   const tool = toolById(toolId);
   const files = useStore((s) => s.files);
@@ -184,6 +197,15 @@ export function Workspace() {
   const [opts, setOpts] = useState<Options>(defaultOptions);
   const [running, setRunning] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  /* consume a preset seeded by an intent page once (user-adjustable after) */
+  useEffect(() => {
+    const preset = useStore.getState().pendingPreset;
+    if (preset) {
+      setOpts((o) => ({ ...o, ...preset }));
+      useStore.setState({ pendingPreset: null });
+    }
+  }, []);
 
   const set = <K extends keyof Options>(key: K, value: Options[K]) =>
     setOpts((o) => ({ ...o, [key]: value }));
@@ -229,6 +251,7 @@ export function Workspace() {
   return (
     <section className="mx-auto max-w-6xl px-4 pb-10 pt-8 sm:px-6">
       {/* tool header */}
+      {!hideHeader && (
       <div className="mb-8 flex items-center gap-3.5">
         <Button
           variant="ghost"
@@ -243,7 +266,11 @@ export function Workspace() {
           <h1 className="text-h2 font-bold tracking-heading">{tool.name}</h1>
           <p className="text-caption text-fg-muted sm:text-sm">{tool.description}</p>
         </div>
+        <div className="ml-auto hidden sm:block">
+          <ShareButton title={tool.name} url={typeof window !== "undefined" ? window.location.href : ""} />
+        </div>
       </div>
+      )}
 
       <div className="flex flex-col gap-6 lg:flex-row lg:gap-8">
         {/* left: files / info */}
@@ -395,6 +422,9 @@ export function Workspace() {
       >
         Works offline · No watermark added by us · Free forever
       </motion.div>
+
+      {/* contextual internal links to related tools */}
+      <RelatedTools toolId={tool.id} />
     </section>
   );
 }

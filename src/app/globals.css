@@ -9,3 +9,17 @@
     scroll-behavior: smooth;
   }
 }
+
+/* ---------- locale / RTL support ---------- */
+/* script-appropriate body font for Hindi, Urdu, Arabic locales */
+body.font-script-enabled {
+  font-family: var(--font-script), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+/* tighter tracking harms connected scripts */
+html[dir="rtl"] .tracking-heading,
+html[dir="rtl"] .tracking-tight,
+html[dir="rtl"] h1,
+html[dir="rtl"] h2,
+html[dir="rtl"] h3 {
+  letter-spacing: normal;
+}

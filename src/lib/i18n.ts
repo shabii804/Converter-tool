@@ -1,17 +1,41 @@
 /**
  * i18n — UI copy for the home experience (header, hero, tool grid,
- * home sections, footer). Tool names stay English by design (product IDs).
- * The chosen language is stored in localStorage only, via the zustand store.
+ * home sections, footer). Tool names and in-tool panel copy stay English
+ * by design (product IDs). The active language comes from the URL locale
+ * (see LocaleProvider in i18n-hooks.tsx) — every locale has its own URL,
+ * which is what makes hreflang work.
  */
-import { useStore } from "./store";
+export type Lang = "en" | "es" | "fr" | "pt" | "hi" | "ur" | "ar";
 
-export type Lang = "en" | "es" | "fr";
+export interface LocaleMeta {
+  id: Lang;
+  label: string; // native name
+  short: string; // chip label
+  dir: "ltr" | "rtl";
+  hreflang: string;
+}
 
-export const LANGS: { id: Lang; label: string; short: string }[] = [
-  { id: "en", label: "English", short: "EN" },
-  { id: "es", label: "Español", short: "ES" },
-  { id: "fr", label: "Français", short: "FR" },
+export const LOCALES: LocaleMeta[] = [
+  { id: "en", label: "English", short: "EN", dir: "ltr", hreflang: "en" },
+  { id: "es", label: "Español", short: "ES", dir: "ltr", hreflang: "es" },
+  { id: "fr", label: "Français", short: "FR", dir: "ltr", hreflang: "fr" },
+  { id: "pt", label: "Português", short: "PT", dir: "ltr", hreflang: "pt" },
+  { id: "hi", label: "हिन्दी", short: "HI", dir: "ltr", hreflang: "hi" },
+  { id: "ur", label: "اردو", short: "UR", dir: "rtl", hreflang: "ur" },
+  { id: "ar", label: "العربية", short: "AR", dir: "rtl", hreflang: "ar" },
 ];
+
+export const DEFAULT_LOCALE: Lang = "en";
+
+export const isLocale = (v: string): v is Lang =>
+  LOCALES.some((l) => l.id === v);
+
+export const localeMeta = (id: Lang): LocaleMeta =>
+  LOCALES.find((l) => l.id === id) ?? LOCALES[0];
+
+export const LANGS = LOCALES; // legacy alias
+
+import { dictionaries as extra } from "./i18n-extra";
 
 const en = {
   a11y: { skip: "Skip to tools" },
@@ -156,6 +180,13 @@ const en = {
     copyright: "© 2026 SwiftPDF. Local-first by design.",
     bottom: "100% in-browser · no file contents tracked · works offline",
   },
+  related: {
+    title: "Related tools",
+    sub: "More tools for this job — all on-device",
+  },
+  share: { label: "Share", copied: "Link copied to clipboard" },
+  install: { label: "Install app" },
+  blogNote: "Articles are currently available in English only.",
 };
 
 export type Copy = typeof en;
@@ -303,6 +334,13 @@ const es: Copy = {
     copyright: "© 2026 SwiftPDF. Local primero, por diseño.",
     bottom: "100% en el navegador · sin rastreo del contenido · funciona sin conexión",
   },
+  related: {
+    title: "Herramientas relacionadas",
+    sub: "Más herramientas para este trabajo — todo en tu dispositivo",
+  },
+  share: { label: "Compartir", copied: "Enlace copiado al portapapeles" },
+  install: { label: "Instalar app" },
+  blogNote: "Los artículos están disponibles solo en inglés por ahora.",
 };
 
 const fr: Copy = {
@@ -448,11 +486,21 @@ const fr: Copy = {
     copyright: "© 2026 SwiftPDF. Local d'abord, par conception.",
     bottom: "100 % dans le navigateur · aucun suivi du contenu · fonctionne hors ligne",
   },
+  related: {
+    title: "Outils associés",
+    sub: "D'autres outils pour ce travail — tout sur votre appareil",
+  },
+  share: { label: "Partager", copied: "Lien copié dans le presse-papiers" },
+  install: { label: "Installer l'app" },
+  blogNote: "Les articles sont actuellement en anglais uniquement.",
 };
 
-export const dictionaries: Record<Lang, Copy> = { en, es, fr };
-
-/** Reactive copy hook — returns the dictionary for the active language. */
-export function useCopy(): Copy {
-  return useStore((s) => dictionaries[s.lang]);
-}
+export const dictionaries: Record<Lang, Copy> = {
+  en,
+  es,
+  fr,
+  pt: extra.pt,
+  hi: extra.hi,
+  ur: extra.ur,
+  ar: extra.ar,
+};

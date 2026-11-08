@@ -10,7 +10,9 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useStore } from "@/lib/store";
-import { useCopy } from "@/lib/i18n";
+import { LocaleProvider } from "@/lib/i18n-hooks";
+import { useCopy } from "@/lib/i18n-hooks";
+import type { Lang } from "@/lib/i18n";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { Hero } from "@/components/hero";
@@ -28,9 +30,14 @@ const views = {
   done: "done",
 } as const;
 
-export function AppShell({ deepLinkToolId }: { deepLinkToolId?: string }) {
+export function AppShell({
+  locale,
+  deepLinkToolId,
+}: {
+  locale: Lang;
+  deepLinkToolId?: string;
+}) {
   const view = useStore((s) => s.view);
-  const lang = useStore((s) => s.lang);
   const hydrateLocal = useStore((s) => s.hydrateLocal);
   const t = useCopy();
   const reduce = useReducedMotion();
@@ -61,16 +68,12 @@ export function AppShell({ deepLinkToolId }: { deepLinkToolId?: string }) {
   useEffect(() => {
     if (!deepLinkToolId || !openedRef.current) return;
     return useStore.subscribe((s) => {
-      if (s.view === "home") router.replace("/", { scroll: false });
+      if (s.view === "home") router.replace(`/${locale}/`, { scroll: false });
     });
-  }, [deepLinkToolId, router]);
-
-  /* keep <html lang> in sync for screen readers */
-  useEffect(() => {
-    document.documentElement.lang = lang;
-  }, [lang]);
+  }, [deepLinkToolId, router, locale]);
 
   return (
+    <LocaleProvider locale={locale}>
     <div className="flex min-h-[100dvh] flex-col bg-background">
       <a
         href="#tools"
@@ -107,5 +110,6 @@ export function AppShell({ deepLinkToolId }: { deepLinkToolId?: string }) {
       <Footer />
       <CommandPalette />
     </div>
+    </LocaleProvider>
   );
 }

@@ -6,7 +6,7 @@ import { useStore } from "@/lib/store";
 import { toolById } from "@/lib/tools";
 import { useToolNav } from "@/lib/use-tool-nav";
 import { executeRun } from "@/lib/pipeline";
-import { useCopy } from "@/lib/i18n";
+import { useCopy } from "@/lib/i18n-hooks";
 import { Button } from "@/components/kit/button";
 import { Dropzone } from "@/components/kit/dropzone";
 import { MeshBackdrop } from "@/components/kit/mesh-backdrop";

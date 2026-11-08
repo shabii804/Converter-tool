@@ -2,9 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { TOOLS, type ToolCategory } from "@/lib/tools";
-import { useCopy, LANGS } from "@/lib/i18n";
+import { LOCALES } from "@/lib/i18n";
+import { useCopy, useLocale, useLocaleHref } from "@/lib/i18n-hooks";
 import { useToolNav } from "@/lib/use-tool-nav";
 import { Button } from "@/components/kit/button";
 import { IconTile } from "@/components/kit/icon-tile";
@@ -22,8 +24,10 @@ export function Header() {
   const setPalette = useStore((s) => s.setPalette);
   const goHome = useStore((s) => s.goHome);
   const nav = useToolNav();
-  const lang = useStore((s) => s.lang);
-  const setLang = useStore((s) => s.setLang);
+  const locale = useLocale();
+  const localeHref = useLocaleHref();
+  const pathname = usePathname();
+  const router = useRouter();
   const t = useCopy();
 
   const [megaOpen, setMegaOpen] = useState(false);
@@ -77,16 +81,26 @@ export function Header() {
     useStore.getState().setToolFilter(cat);
     setSheetOpen(false);
     goHome();
+    router.push(localeHref("/"));
     setTimeout(() => {
       document.getElementById("tools")?.scrollIntoView({ behavior: "smooth" });
     }, 60);
+  };
+
+  /** same path, different locale — real URL per language (hreflang) */
+  const localeSwitchHref = (l: string) => {
+    const rest = pathname.replace(new RegExp(`^/${locale}(?=/|$)`), "");
+    return `/${l}${rest || ""}`;
   };
 
   return (
     <header className="sticky top-0 z-40 border-b border-border-subtle bg-background/80 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-1.5 px-3 sm:gap-2.5 sm:px-6">
         <button
-          onClick={goHome}
+          onClick={() => {
+            goHome();
+            router.push(localeHref("/"));
+          }}
           className="mr-1 flex min-h-11 items-center gap-2.5 rounded-control px-1 outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label="SwiftPDF home"
         >
@@ -160,7 +174,7 @@ export function Header() {
         </div>
 
         <Link
-          href="/blog"
+          href={localeHref("/blog")}
           className="hidden min-h-11 items-center rounded-control px-3 text-sm font-medium text-fg-muted transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring md:inline-flex"
         >
           {t.nav.blog}
@@ -199,11 +213,11 @@ export function Header() {
               onClick={() => setLangOpen((v) => !v)}
               aria-expanded={langOpen}
               aria-haspopup="true"
-              aria-label={`${t.lang.label}: ${LANGS.find((l) => l.id === lang)?.label ?? ""}`}
+              aria-label={`${t.lang.label}: ${LOCALES.find((l) => l.id === locale)?.label ?? ""}`}
               className="size-11 rounded-chip"
             >
               <Globe aria-hidden="true" />
-              <span className="sr-only">{LANGS.find((l) => l.id === lang)?.short}</span>
+              <span className="sr-only">{LOCALES.find((l) => l.id === locale)?.short}</span>
             </Button>
             {langOpen && (
               <div
@@ -211,21 +225,18 @@ export function Header() {
                 aria-label={t.lang.label}
                 className="absolute right-0 top-[calc(100%+8px)] z-50 min-w-44 rounded-card border border-border bg-surface-1 p-1.5 shadow-lg"
               >
-                {LANGS.map((l) => (
-                  <button
+                {LOCALES.map((l) => (
+                  <Link
                     key={l.id}
                     role="menuitemradio"
-                    aria-checked={lang === l.id}
-                    onClick={() => {
-                      setLang(l.id);
-                      setLangOpen(false);
-                      langTrigger.current?.focus();
-                    }}
+                    aria-checked={locale === l.id}
+                    href={localeSwitchHref(l.id)}
+                    onClick={() => setLangOpen(false)}
                     className="flex min-h-11 w-full items-center justify-between rounded-control px-3 text-[13px] font-medium text-fg-muted outline-none transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     {l.label}
-                    {lang === l.id && <Check className="size-4 text-primary" aria-hidden="true" />}
-                  </button>
+                    {locale === l.id && <Check className="size-4 text-primary" aria-hidden="true" />}
+                  </Link>
                 ))}
               </div>
             )}
