@@ -6,7 +6,15 @@ import { useStore, type StoreFile } from "@/lib/store";
 import { toolById } from "@/lib/tools";
 import { firstPagePreview } from "@/lib/pdf-engine";
 import { executeRun } from "@/lib/pipeline";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/kit/button";
+import { Card } from "@/components/kit/card";
+import { FileCard } from "@/components/kit/file-card";
+import { Dropzone } from "@/components/kit/dropzone";
+import { IconTile } from "@/components/kit/icon-tile";
+import { notify } from "@/components/kit/toast";
+import { EmptyPagesIllustration } from "@/components/illustrations";
+import { PageThumbs } from "./page-thumbs";
+import { formatBytes } from "@/lib/format";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -18,17 +26,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { PageThumbs } from "./page-thumbs";
-import { formatBytes } from "@/lib/format";
-import { toast } from "sonner";
 import {
   ArrowLeft,
   Play,
-  Plus,
-  X,
-  FileText,
-  Loader2,
   Eye,
+  TriangleAlert,
 } from "lucide-react";
 
 /* ---------- per-tool option state ---------- */
@@ -120,6 +122,9 @@ const defaultOptions = (): Options => ({
   organizeDeleted: new Set(),
 });
 
+/** Friendly large-file threshold (honest copy, no fake limits). */
+const LARGE_FILE_BYTES = 100 * 1024 * 1024;
+
 /* ---------- main component ---------- */
 
 export function Workspace() {
@@ -129,15 +134,9 @@ export function Workspace() {
   const addFiles = useStore((s) => s.addFiles);
   const removeFile = useStore((s) => s.removeFile);
   const goHome = useStore((s) => s.goHome);
-  const setView = useStore((s) => s.setView);
-  const setJobs = useStore((s) => s.setJobs);
-  const updateJob = useStore((s) => s.updateJob);
-  const setResults = useStore((s) => s.setResults);
-  const setStats = useStore((s) => s.setStats);
 
   const [opts, setOpts] = useState<Options>(defaultOptions);
   const [running, setRunning] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const set = <K extends keyof Options>(key: K, value: Options[K]) =>
@@ -155,54 +154,48 @@ export function Workspace() {
       if (opts.splitMode === "extract" && opts.splitSelected.size === 0)
         return false;
     }
-    if (tool.id === "organize" && files.length === 1) {
-      // allowed with any kept pages; engine validates
-    }
     return true;
   }, [tool, files, opts]);
 
   const onRun = useCallback(async () => {
     if (!tool || !canRun || running) return;
     setRunning(true);
-    const es = entries(files);
+    const es = files.map((f) => ({ id: f.id, file: f.file }));
     await executeRun(tool.id, es, buildOptions(tool.id, opts));
     setRunning(false);
   }, [canRun, running, files, opts, tool]);
 
   if (!tool) return null;
 
-  const panel = <OptionsPanel toolId={tool.id} opts={opts} set={set} files={files} />;
+  const hasLargeFile = files.some((f) => f.size > LARGE_FILE_BYTES);
 
   return (
-    <section className="mx-auto max-w-6xl px-4 pb-16 pt-6 sm:px-6">
+    <section className="mx-auto max-w-6xl px-4 pb-10 pt-8 sm:px-6">
       {/* tool header */}
-      <div className="mb-6 flex items-center gap-3">
+      <div className="mb-8 flex items-center gap-3.5">
         <Button
           variant="ghost"
           size="icon"
           onClick={goHome}
-          className="h-9 w-9 rounded-full"
           aria-label="Back to home"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft />
         </Button>
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10">
-          <tool.icon className="h-5 w-5 text-primary" />
-        </div>
+        <IconTile icon={tool.icon} category={tool.category} size="lg" />
         <div>
-          <h1 className="text-lg font-bold tracking-tight sm:text-xl">{tool.name}</h1>
-          <p className="text-xs text-muted-foreground sm:text-sm">{tool.description}</p>
+          <h1 className="text-h2 font-bold tracking-heading">{tool.name}</h1>
+          <p className="text-caption text-fg-muted sm:text-sm">{tool.description}</p>
         </div>
       </div>
 
-      <div className="flex flex-col gap-5 lg:flex-row lg:gap-6">
+      <div className="flex flex-col gap-6 lg:flex-row lg:gap-8">
         {/* left: files */}
-        <div className="w-full shrink-0 lg:w-[340px]">
-          <div className="rounded-2xl border bg-card p-4 shadow-sm">
-            <div className="mb-3 flex items-center justify-between">
-              <p className="text-sm font-semibold">
+        <div className="w-full shrink-0 lg:w-[360px]">
+          <Card className="p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <p className="text-sm font-bold">
                 Files
-                <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                <span className="ml-1.5 text-[13px] font-normal text-fg-faint">
                   {files.length}
                   {tool.maxFiles < 100 ? `/${tool.maxFiles}` : ""}
                 </span>
@@ -210,7 +203,7 @@ export function Workspace() {
               {files.length > 0 && (
                 <button
                   onClick={() => files.forEach((f) => removeFile(f.id))}
-                  className="text-xs font-medium text-muted-foreground hover:text-destructive"
+                  className="text-[13px] font-medium text-fg-muted transition-colors hover:text-destructive"
                 >
                   Clear
                 </button>
@@ -218,130 +211,103 @@ export function Workspace() {
             </div>
 
             {files.length === 0 ? (
-              <button
-                onClick={() => inputRef.current?.click()}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setDragOver(true);
-                }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setDragOver(false);
-                  const list = Array.from(e.dataTransfer.files || []);
-                  if (list.length) addFiles(list);
-                }}
-                className={`flex h-36 w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed text-center transition ${
-                  dragOver
-                    ? "border-primary bg-primary/[0.06]"
-                    : "border-border hover:border-primary/40 hover:bg-primary/[0.03]"
-                }`}
-              >
-                <Plus className="h-6 w-6 text-primary" />
-                <span className="text-xs font-medium text-muted-foreground">
-                  Drop {tool.input === "image" ? "images" : tool.input === "docx" ? ".docx files" : "PDF files"} or click
-                </span>
-              </button>
+              <div className="space-y-3">
+                <Dropzone
+                  compact
+                  accept={tool.accept}
+                  multiple={tool.maxFiles > 1}
+                  onFiles={(list) => {
+                    const { rejected } = addFiles(list);
+                    if (rejected > 0)
+                      notify.warning(
+                        `${rejected} file(s) skipped`,
+                        `Wrong type for ${tool.name}`
+                      );
+                  }}
+                  title={`Drop ${tool.input === "image" ? "images" : tool.input === "docx" ? ".docx files" : "PDF files"} here`}
+                  subtitle="or click to browse"
+                />
+                <div className="flex justify-center">
+                  <EmptyPagesIllustration className="w-24 opacity-80" />
+                </div>
+              </div>
             ) : (
-              <div className="max-h-[320px] space-y-2 overflow-y-auto pr-1 [scrollbar-width:thin]">
+              <div className="max-h-[360px] space-y-2.5 overflow-y-auto pr-1 [scrollbar-width:thin]">
                 {files.map((f) => (
-                  <div
+                  <FileCard
                     key={f.id}
-                    className="group flex items-center gap-2.5 rounded-xl border bg-background p-2.5"
-                  >
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                      <FileText className="h-4 w-4 text-primary" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-semibold">{f.name}</p>
-                      <p className="text-[11px] text-muted-foreground">
-                        {formatBytes(f.size)}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => removeFile(f.id)}
-                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive"
-                      aria-label={`Remove ${f.name}`}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
+                    name={f.name}
+                    size={f.size}
+                    onRemove={() => removeFile(f.id)}
+                  />
                 ))}
                 {files.length < tool.maxFiles && (
                   <button
                     onClick={() => inputRef.current?.click()}
-                    className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed py-2.5 text-xs font-medium text-muted-foreground transition hover:border-primary/40 hover:text-primary"
+                    className="flex w-full items-center justify-center gap-1.5 rounded-control border border-dashed border-border-strong py-3 text-[13px] font-medium text-fg-muted transition-colors hover:border-ring hover:text-primary"
                   >
-                    <Plus className="h-3.5 w-3.5" /> Add more
+                    Add more files
                   </button>
                 )}
               </div>
             )}
-            <input
-              ref={inputRef}
-              type="file"
-              multiple
-              accept={tool.accept}
-              className="hidden"
-              onChange={(e) => {
-                const list = Array.from(e.target.files || []);
-                if (list.length) {
-                  const { rejected } = addFiles(list);
-                  if (rejected > 0)
-                    toast.warning(
-                      `${rejected} file(s) skipped — wrong type for ${tool.name}`
-                    );
-                }
-                e.target.value = "";
-              }}
-            />
-          </div>
 
-          {/* privacy note */}
-          <div className="mt-3 flex items-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.06] px-3 py-2.5">
-            <Eye className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-            <p className="text-[11px] leading-snug text-emerald-800 dark:text-emerald-300">
-              Processing happens <b>on this device</b>. Nothing is uploaded.
-            </p>
-          </div>
+            {/* honest large-file warning (rule 7) */}
+            {hasLargeFile && (
+              <div className="mt-4 flex items-start gap-2.5 rounded-control border border-warning/30 bg-warning/10 p-3.5">
+                <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" />
+                <p className="text-[13px] leading-snug text-fg-muted">
+                  <b className="text-foreground">Large file detected.</b>{" "}
+                  Everything runs on this device, so this may take a while and
+                  use a lot of memory. Keep the tab in the foreground until
+                  it finishes.
+                </p>
+              </div>
+            )}
+
+            {/* privacy note */}
+            <div className="mt-4 flex items-center gap-2.5 rounded-control border border-success/25 bg-success/[0.07] px-3.5 py-3">
+              <Eye className="size-4 shrink-0 text-success" />
+              <p className="text-[13px] leading-snug text-fg-muted">
+                Processing happens <b className="text-foreground">on this device</b>.
+                Nothing is uploaded.
+              </p>
+            </div>
+          </Card>
         </div>
 
         {/* right: options */}
         <div className="min-w-0 flex-1">
-          <div className="rounded-2xl border bg-card p-4 shadow-sm sm:p-5">
-            <p className="mb-4 text-sm font-semibold">Options</p>
-            {panel}
-          </div>
+          <Card className="p-6">
+            <p className="mb-5 text-sm font-bold">Options</p>
+            <OptionsPanel toolId={tool.id} opts={opts} set={set} files={files} />
+          </Card>
 
-          <Button
-            onClick={onRun}
-            disabled={!canRun || running}
-            className="mt-4 h-13 w-full rounded-xl text-base font-bold shadow-md shadow-primary/20 transition-all hover:shadow-lg hover:shadow-primary/30 disabled:opacity-40 sm:h-14 sm:text-lg"
-            size="lg"
-          >
-            {running ? (
-              <>
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Working…
-              </>
-            ) : (
-              <>
-                <Play className="mr-2 h-5 w-5 fill-current" />
-                {tool.zeroOption ? `Run ${tool.name}` : `Run ${tool.name}`}
-              </>
+          {/* run button — sticky on mobile so it is always reachable */}
+          <div className="sticky bottom-0 -mx-4 mt-6 border-t border-border-subtle bg-background/90 px-4 py-4 backdrop-blur-lg sm:-mx-6 sm:px-6 lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:px-0 lg:py-0 lg:backdrop-blur-none">
+            <Button
+              onClick={onRun}
+              disabled={!canRun || running}
+              loading={running}
+              size="xl"
+              className="w-full text-base shadow-glow"
+            >
+              {!running && <Play className="fill-current" />}
+              {running ? "Working…" : `Run ${tool.name}`}
+            </Button>
+            {!canRun && files.length > 0 && (
+              <p className="mt-2 text-center text-[13px] text-fg-muted">
+                {hint(toolId, opts, files)}
+              </p>
             )}
-          </Button>
-          {!canRun && files.length > 0 && (
-            <p className="mt-2 text-center text-xs text-muted-foreground">
-              {hint(toolId, opts, files)}
-            </p>
-          )}
+          </div>
         </div>
       </div>
 
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="mt-6 hidden justify-center text-[11px] text-muted-foreground/70 sm:flex"
+        className="mt-10 hidden justify-center text-micro text-fg-faint lg:flex"
       >
         Works offline · No watermark added by us · Free forever
       </motion.div>
@@ -349,9 +315,7 @@ export function Workspace() {
   );
 }
 
-function entries(files: StoreFile[]) {
-  return files.map((f) => ({ id: f.id, file: f.file }));
-}
+/* ---------- option mapping (UI state → engine options) ---------- */
 
 function buildOptions(
   toolId: string,
@@ -409,8 +373,13 @@ function buildOptions(
     case "unlock":
       return { password: opts.password };
     case "organize":
+      // engine contract: order = kept pages (1-based) in their new order.
+      // if the user never dragged, fall back to natural ascending order.
       return {
-        order: opts.order.filter((p) => !opts.organizeDeleted.has(p)),
+        order:
+          opts.order.length > 0
+            ? opts.order.filter((p) => !opts.organizeDeleted.has(p))
+            : [],
         rotations: opts.rotations,
       };
     default:
@@ -453,7 +422,7 @@ function OptionsPanel({
   switch (toolId) {
     case "merge":
       return (
-        <p className="rounded-xl bg-primary/[0.04] p-3 text-xs text-muted-foreground">
+        <p className="rounded-control bg-surface-1 p-4 text-[13px] leading-relaxed text-fg-muted">
           Files merge in the order listed. Add more files any time — one click
           and they become a single PDF.
         </p>
@@ -461,7 +430,7 @@ function OptionsPanel({
 
     case "split":
       return (
-        <div className="space-y-4">
+        <div className="space-y-5">
           <SegButtons
             value={opts.splitMode}
             onChange={(v) => set("splitMode", v as Options["splitMode"])}
@@ -473,26 +442,23 @@ function OptionsPanel({
           />
           {opts.splitMode === "ranges" && (
             <div>
-              <Label className="mb-1.5 block text-xs font-medium">
+              <Label className="mb-2 block text-[13px] font-medium">
                 Ranges (comma separated)
               </Label>
               <Input
                 value={opts.ranges}
                 onChange={(e) => set("ranges", e.target.value)}
                 placeholder="1-3, 5, 8-10"
-                className="rounded-xl"
               />
-              <p className="mt-1.5 text-[11px] text-muted-foreground">
+              <p className="mt-2 text-micro text-fg-faint">
                 Each range or page becomes its own PDF file.
               </p>
             </div>
           )}
           {opts.splitMode === "fixed" && (
             <div>
-              <Label className="mb-1.5 block text-xs font-medium">
-                Split every
-              </Label>
-              <div className="flex items-center gap-3">
+              <Label className="mb-2 block text-[13px] font-medium">Split every</Label>
+              <div className="flex items-center gap-4">
                 <Slider
                   min={1}
                   max={20}
@@ -501,7 +467,7 @@ function OptionsPanel({
                   onValueChange={([v]) => set("everyN", v)}
                   className="flex-1"
                 />
-                <span className="w-16 text-right text-sm font-semibold">
+                <span className="w-20 text-right text-sm font-bold">
                   {opts.everyN} page{opts.everyN > 1 ? "s" : ""}
                 </span>
               </div>
@@ -509,7 +475,7 @@ function OptionsPanel({
           )}
           {opts.splitMode === "extract" && files[0] && (
             <div>
-              <Label className="mb-2 block text-xs font-medium">
+              <Label className="mb-3 block text-[13px] font-medium">
                 Click pages to include ({opts.splitSelected.size} selected)
               </Label>
               <PageThumbs
@@ -529,7 +495,7 @@ function OptionsPanel({
 
     case "compress":
       return (
-        <div className="space-y-2.5">
+        <div className="space-y-3">
           {(
             [
               { v: "low", t: "Extreme compression", d: "Smallest size, lower quality" },
@@ -540,30 +506,30 @@ function OptionsPanel({
             <button
               key={o.v}
               onClick={() => set("level", o.v)}
-              className={`flex w-full items-center gap-3 rounded-xl border p-3.5 text-left transition ${
+              className={`flex w-full items-center gap-3.5 rounded-control border p-4 text-left transition-all ${
                 opts.level === o.v
-                  ? "border-primary bg-primary/[0.05] shadow-sm"
-                  : "hover:border-primary/30"
+                  ? "border-ring bg-primary/[0.04] shadow-sm"
+                  : "border-border hover:border-border-strong"
               }`}
             >
               <span
-                className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${
+                className={`flex size-4.5 shrink-0 items-center justify-center rounded-full border-2 ${
                   opts.level === o.v
                     ? "border-primary bg-primary"
-                    : "border-muted-foreground/40"
+                    : "border-border-strong"
                 }`}
               >
                 {opts.level === o.v && (
-                  <span className="h-1.5 w-1.5 rounded-full bg-white" />
+                  <span className="size-1.5 rounded-full bg-white" />
                 )}
               </span>
               <span>
                 <span className="block text-sm font-semibold">{o.t}</span>
-                <span className="block text-xs text-muted-foreground">{o.d}</span>
+                <span className="block text-[13px] text-fg-muted">{o.d}</span>
               </span>
             </button>
           ))}
-          <p className="pt-1 text-[11px] text-muted-foreground">
+          <p className="pt-1 text-[13px] leading-relaxed text-fg-faint">
             SwiftPDF tries both a lossless re-save and smart re-encoding, then
             keeps whichever is smaller.
           </p>
@@ -572,8 +538,8 @@ function OptionsPanel({
 
     case "organize":
       return (
-        <div className="space-y-4">
-          <p className="text-xs text-muted-foreground">
+        <div className="space-y-5">
+          <p className="text-[13px] text-fg-muted">
             Click ✓ to remove a page · drag cards to reorder · ↻ rotates a page
           </p>
           {files[0] && (
@@ -598,6 +564,12 @@ function OptionsPanel({
               reorderable
               rotatable
             />
+          )}
+          {files[0] && (
+            <p className="text-micro leading-relaxed text-fg-faint">
+              Deleted pages are removed from the output. Everything else stays
+              in the order shown above.
+            </p>
           )}
         </div>
       );
@@ -630,15 +602,17 @@ function OptionsPanel({
 
     case "jpg-to-pdf":
       return (
-        <div className="space-y-4">
+        <div className="space-y-5">
           <TwoCol>
             <div>
-              <Label className="mb-1.5 block text-xs font-medium">Page size</Label>
+              <Label className="mb-2 block text-[13px] font-medium">Page size</Label>
               <Select
                 value={opts.pageSize}
                 onValueChange={(v) => set("pageSize", v as Options["pageSize"])}
               >
-                <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="fit">Fit to image</SelectItem>
                   <SelectItem value="a4">A4</SelectItem>
@@ -647,13 +621,15 @@ function OptionsPanel({
               </Select>
             </div>
             <div>
-              <Label className="mb-1.5 block text-xs font-medium">Orientation</Label>
+              <Label className="mb-2 block text-[13px] font-medium">Orientation</Label>
               <Select
                 value={opts.orientation}
                 onValueChange={(v) => set("orientation", v as Options["orientation"])}
                 disabled={opts.pageSize === "fit"}
               >
-                <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="auto">Auto</SelectItem>
                   <SelectItem value="portrait">Portrait</SelectItem>
@@ -663,8 +639,8 @@ function OptionsPanel({
             </div>
           </TwoCol>
           <div>
-            <Label className="mb-1.5 block text-xs font-medium">Margin</Label>
-            <div className="flex items-center gap-3">
+            <Label className="mb-2 block text-[13px] font-medium">Margin</Label>
+            <div className="flex items-center gap-4">
               <Slider
                 min={0}
                 max={72}
@@ -673,7 +649,7 @@ function OptionsPanel({
                 onValueChange={([v]) => set("margin", v)}
                 className="flex-1"
               />
-              <span className="w-14 text-right text-sm font-semibold">{opts.margin}pt</span>
+              <span className="w-16 text-right text-sm font-bold">{opts.margin}pt</span>
             </div>
           </div>
         </div>
@@ -682,7 +658,7 @@ function OptionsPanel({
     case "pdf-to-word":
     case "pdf-to-excel":
       return (
-        <p className="rounded-xl bg-primary/[0.04] p-3 text-xs text-muted-foreground">
+        <p className="rounded-control bg-surface-1 p-4 text-[13px] leading-relaxed text-fg-muted">
           Text is extracted into a fully editable file. Scanned PDFs contain
           images only — for those, use PDF to JPG or an OCR tool.
         </p>
@@ -690,7 +666,7 @@ function OptionsPanel({
 
     case "pdf-to-ppt":
       return (
-        <p className="rounded-xl bg-primary/[0.04] p-3 text-xs text-muted-foreground">
+        <p className="rounded-control bg-surface-1 p-4 text-[13px] leading-relaxed text-fg-muted">
           Each PDF page is rendered at high resolution and placed as a
           full-bleed slide image in a 16:9 PowerPoint file.
         </p>
@@ -699,12 +675,14 @@ function OptionsPanel({
     case "word-to-pdf":
       return (
         <div>
-          <Label className="mb-1.5 block text-xs font-medium">Page size</Label>
+          <Label className="mb-2 block text-[13px] font-medium">Page size</Label>
           <Select
             value={opts.docPageSize}
             onValueChange={(v) => set("docPageSize", v as Options["docPageSize"])}
           >
-            <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="a4">A4</SelectItem>
               <SelectItem value="letter">US Letter</SelectItem>
@@ -718,15 +696,17 @@ function OptionsPanel({
 
     case "page-numbers":
       return (
-        <div className="space-y-4">
+        <div className="space-y-5">
           <TwoCol>
             <div>
-              <Label className="mb-1.5 block text-xs font-medium">Format</Label>
+              <Label className="mb-2 block text-[13px] font-medium">Format</Label>
               <Select
                 value={opts.pnFormat}
                 onValueChange={(v) => set("pnFormat", v as Options["pnFormat"])}
               >
-                <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="n">1, 2, 3…</SelectItem>
                   <SelectItem value="page_n">Page 1, Page 2…</SelectItem>
@@ -735,12 +715,14 @@ function OptionsPanel({
               </Select>
             </div>
             <div>
-              <Label className="mb-1.5 block text-xs font-medium">Position</Label>
+              <Label className="mb-2 block text-[13px] font-medium">Position</Label>
               <Select
                 value={opts.pnPosition}
                 onValueChange={(v) => set("pnPosition", v as Options["pnPosition"])}
               >
-                <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="bottom-center">Bottom center</SelectItem>
                   <SelectItem value="bottom-right">Bottom right</SelectItem>
@@ -753,7 +735,7 @@ function OptionsPanel({
             </div>
           </TwoCol>
           <div>
-            <Label className="mb-1.5 block text-xs font-medium">
+            <Label className="mb-2 block text-[13px] font-medium">
               Start numbering at
             </Label>
             <Input
@@ -761,12 +743,12 @@ function OptionsPanel({
               min={1}
               value={opts.pnStart}
               onChange={(e) => set("pnStart", Math.max(1, Number(e.target.value) || 1))}
-              className="w-28 rounded-xl"
+              className="w-28"
             />
           </div>
           <div>
-            <Label className="mb-1.5 block text-xs font-medium">Font size</Label>
-            <div className="flex items-center gap-3">
+            <Label className="mb-2 block text-[13px] font-medium">Font size</Label>
+            <div className="flex items-center gap-4">
               <Slider
                 min={7}
                 max={24}
@@ -775,11 +757,11 @@ function OptionsPanel({
                 onValueChange={([v]) => set("pnSize", v)}
                 className="flex-1"
               />
-              <span className="w-14 text-right text-sm font-semibold">{opts.pnSize}pt</span>
+              <span className="w-16 text-right text-sm font-bold">{opts.pnSize}pt</span>
             </div>
           </div>
-          <div className="flex items-center justify-between rounded-xl border p-3">
-            <Label className="text-xs font-medium">Skip first page (cover)</Label>
+          <div className="flex items-center justify-between rounded-control border border-border p-4">
+            <Label className="text-[13px] font-medium">Skip first page (cover)</Label>
             <Switch
               checked={opts.pnSkipFirst}
               onCheckedChange={(v) => set("pnSkipFirst", v)}
@@ -793,19 +775,18 @@ function OptionsPanel({
 
     case "protect":
       return (
-        <div className="space-y-4">
+        <div className="space-y-5">
           <div>
-            <Label className="mb-1.5 block text-xs font-medium">Password</Label>
+            <Label className="mb-2 block text-[13px] font-medium">Password</Label>
             <Input
               type="password"
               value={opts.password}
               onChange={(e) => set("password", e.target.value)}
               placeholder="At least 4 characters"
-              className="rounded-xl"
             />
           </div>
           <div>
-            <Label className="mb-1.5 block text-xs font-medium">
+            <Label className="mb-2 block text-[13px] font-medium">
               Confirm password
             </Label>
             <Input
@@ -813,15 +794,14 @@ function OptionsPanel({
               value={opts.confirm}
               onChange={(e) => set("confirm", e.target.value)}
               placeholder="Repeat password"
-              className="rounded-xl"
             />
             {opts.confirm && opts.password !== opts.confirm && (
-              <p className="mt-1.5 text-xs text-destructive">
+              <p className="mt-2 text-[13px] text-destructive">
                 Passwords do not match
               </p>
             )}
           </div>
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-[13px] leading-relaxed text-fg-faint">
             Standard PDF encryption — opens in Adobe, Preview, browsers. We
             cannot recover a lost password.
           </p>
@@ -831,7 +811,7 @@ function OptionsPanel({
     case "unlock":
       return (
         <div>
-          <Label className="mb-1.5 block text-xs font-medium">
+          <Label className="mb-2 block text-[13px] font-medium">
             Current password
           </Label>
           <Input
@@ -839,9 +819,8 @@ function OptionsPanel({
             value={opts.password}
             onChange={(e) => set("password", e.target.value)}
             placeholder="The password you already know"
-            className="rounded-xl"
           />
-          <p className="mt-2 text-[11px] text-muted-foreground">
+          <p className="mt-2.5 text-[13px] leading-relaxed text-fg-faint">
             This removes the password from the saved copy — use it only on
             files you own.
           </p>
@@ -878,33 +857,33 @@ function WatermarkOptions({
   }, [files]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div>
-        <Label className="mb-1.5 block text-xs font-medium">Text</Label>
+        <Label className="mb-2 block text-[13px] font-medium">Text</Label>
         <Input
           value={opts.wmText}
           onChange={(e) => set("wmText", e.target.value)}
           placeholder="CONFIDENTIAL, DRAFT, company name…"
-          className="rounded-xl"
         />
       </div>
 
       {preview && (
-        <div className="relative mx-auto max-w-sm overflow-hidden rounded-xl border shadow-sm">
-          
-          <img src={preview} alt="Watermark preview" className="block w-full" />
+        <div className="relative mx-auto max-w-sm overflow-hidden rounded-card border border-border shadow-sm">
+          <img src={preview} alt="Watermark preview" className="block w-full bg-white" />
           <WatermarkOverlay opts={opts} />
         </div>
       )}
 
       <TwoCol>
         <div>
-          <Label className="mb-1.5 block text-xs font-medium">Layout</Label>
+          <Label className="mb-2 block text-[13px] font-medium">Layout</Label>
           <Select
             value={opts.wmPosition}
             onValueChange={(v) => set("wmPosition", v as Options["wmPosition"])}
           >
-            <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="diagonal">Diagonal</SelectItem>
               <SelectItem value="center">Center</SelectItem>
@@ -915,24 +894,22 @@ function WatermarkOptions({
           </Select>
         </div>
         <div>
-          <Label className="mb-1.5 block text-xs font-medium">Color</Label>
-          <div className="flex items-center gap-2">
+          <Label className="mb-2 block text-[13px] font-medium">Color</Label>
+          <div className="flex items-center gap-2.5">
             <input
               type="color"
               value={opts.wmColor}
               onChange={(e) => set("wmColor", e.target.value)}
-              className="h-10 w-12 cursor-pointer rounded-lg border bg-card p-1"
+              className="h-10 w-12 cursor-pointer rounded-control border border-border bg-card p-1"
               aria-label="Watermark color"
             />
-            <span className="text-xs font-mono text-muted-foreground">
-              {opts.wmColor}
-            </span>
+            <span className="font-mono text-[13px] text-fg-muted">{opts.wmColor}</span>
           </div>
         </div>
       </TwoCol>
 
       <div>
-        <Label className="mb-1.5 block text-xs font-medium">
+        <Label className="mb-2 block text-[13px] font-medium">
           Size · {opts.wmSize}pt
         </Label>
         <Slider
@@ -944,7 +921,7 @@ function WatermarkOptions({
         />
       </div>
       <div>
-        <Label className="mb-1.5 block text-xs font-medium">
+        <Label className="mb-2 block text-[13px] font-medium">
           Opacity · {Math.round(opts.wmOpacity * 100)}%
         </Label>
         <Slider
@@ -956,7 +933,7 @@ function WatermarkOptions({
         />
       </div>
       <div>
-        <Label className="mb-1.5 block text-xs font-medium">
+        <Label className="mb-2 block text-[13px] font-medium">
           Rotation · {opts.wmRotation}°
         </Label>
         <Slider
@@ -967,8 +944,8 @@ function WatermarkOptions({
           onValueChange={([v]) => set("wmRotation", v)}
         />
       </div>
-      <div className="flex items-center justify-between rounded-xl border p-3">
-        <Label className="text-xs font-medium">Bold text</Label>
+      <div className="flex items-center justify-between rounded-control border border-border p-4">
+        <Label className="text-[13px] font-medium">Bold text</Label>
         <Switch
           checked={opts.wmBold}
           onCheckedChange={(v) => set("wmBold", v)}
@@ -1059,7 +1036,7 @@ function CropOptions({
     label: string
   ) => (
     <div>
-      <Label className="mb-1.5 block text-xs font-medium">
+      <Label className="mb-2 block text-[13px] font-medium">
         {label} · {opts[key]}%
       </Label>
       <Slider
@@ -1073,20 +1050,19 @@ function CropOptions({
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {preview && (
-        <div className="relative mx-auto max-w-sm overflow-hidden rounded-xl border shadow-sm">
-          
-          <img src={preview} alt="Crop preview" className="block w-full" />
+        <div className="relative mx-auto max-w-sm overflow-hidden rounded-card border border-border shadow-sm">
+          <img src={preview} alt="Crop preview" className="block w-full bg-white" />
           <div
             className="pointer-events-none absolute inset-0"
             style={{
-              background: "rgba(15,23,42,0.55)",
+              background: "rgba(11,15,26,0.55)",
               clipPath: `polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 0, ${opts.cropLeft}% ${opts.cropTop}%, ${opts.cropLeft}% ${100 - opts.cropBottom}%, ${100 - opts.cropRight}% ${100 - opts.cropBottom}%, ${100 - opts.cropRight}% ${opts.cropTop}%, ${opts.cropLeft}% ${opts.cropTop}%)`,
             }}
           />
           <div
-            className="pointer-events-none absolute border-2 border-dashed border-primary"
+            className="pointer-events-none absolute border-2 border-dashed border-ring"
             style={{
               left: `${opts.cropLeft}%`,
               top: `${opts.cropTop}%`,
@@ -1102,6 +1078,10 @@ function CropOptions({
         {side("cropBottom", "Bottom")}
         {side("cropLeft", "Left")}
       </TwoCol>
+      <p className="text-[13px] leading-relaxed text-fg-faint">
+        Crop sets the visible page box — it does not delete the cropped
+        content from the file. Use Protect afterwards if that matters for you.
+      </p>
     </div>
   );
 }
@@ -1123,10 +1103,10 @@ function SegButtons({
         <button
           key={o.v}
           onClick={() => onChange(o.v)}
-          className={`rounded-xl border px-3 py-2.5 text-xs font-semibold transition ${
+          className={`rounded-control border px-3.5 py-2.5 text-[13px] font-semibold transition-all ${
             value === o.v
-              ? "border-primary bg-primary text-primary-foreground shadow-sm"
-              : "bg-background hover:border-primary/40"
+              ? "border-ring bg-gradient-brand text-white shadow-glow"
+              : "border-border bg-background hover:border-border-strong"
           }`}
         >
           {o.label}
@@ -1137,5 +1117,5 @@ function SegButtons({
 }
 
 function TwoCol({ children }: { children: React.ReactNode }) {
-  return <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">{children}</div>;
+  return <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">{children}</div>;
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useStore } from "@/lib/store";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/kit/button";
 import { useTheme } from "next-themes";
 import { Moon, Sun, ShieldCheck, Command } from "lucide-react";
 import { Logo } from "./logo";
@@ -14,62 +14,59 @@ export function Header() {
   const toolId = useStore((s) => s.toolId);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
-      <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 sm:px-6">
+    <header className="sticky top-0 z-40 border-b border-border-subtle bg-background/80 backdrop-blur-xl">
+      <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:px-6">
         <button
           onClick={goHome}
-          className="flex items-center gap-2 rounded-lg outline-none ring-primary/40 focus-visible:ring-2"
+          className="flex items-center gap-2.5 rounded-control outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label="SwiftPDF home"
         >
-          <Logo className="h-7 w-7" />
+          <Logo className="size-8" />
           <span className="text-[17px] font-bold tracking-tight">
-            Swift
-            <span className="text-primary">PDF</span>
+            Swift<span className="text-gradient">PDF</span>
           </span>
         </button>
 
-        <span className="ml-1 hidden text-xs font-medium text-muted-foreground md:inline">
+        <span className="ml-1 hidden text-caption text-fg-faint md:inline">
           {view === "tool" && toolId
             ? "· local workspace"
             : "· PDF tools that never upload"}
         </span>
 
-        {/* privacy badge */}
         <div className="ml-auto flex items-center gap-2">
+          {/* privacy badge */}
           <div
-            className="group relative flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5"
+            className="group relative flex items-center gap-1.5 rounded-chip border border-success/25 bg-success/10 px-3 py-1.5"
             title="Your files are processed on your device. Nothing is uploaded, ever."
           >
-            <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-            <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 sm:text-xs">
+            <ShieldCheck className="size-3.5 text-success" />
+            <span className="text-micro font-semibold text-success">
               0 bytes uploaded
             </span>
-            <span className="pointer-events-none absolute -bottom-9 right-0 hidden whitespace-nowrap rounded-md border bg-popover px-2.5 py-1.5 text-[11px] text-popover-foreground shadow-md group-hover:block">
+            <span className="pointer-events-none absolute -bottom-10 right-0 hidden whitespace-nowrap rounded-control border border-border bg-popover px-2.5 py-1.5 text-micro text-popover-foreground shadow-md group-hover:block sm:hidden">
               Files are processed on-device — works offline too
             </span>
           </div>
 
           <Button
-            variant="outline"
+            variant="secondary"
             size="icon"
-            className="hidden h-9 w-9 rounded-full sm:inline-flex"
             onClick={() => setPalette(true)}
             aria-label="Open command palette (Ctrl+K)"
+            className="rounded-chip"
           >
-            <Command className="h-4 w-4" />
+            <Command />
           </Button>
 
           <Button
-            variant="outline"
+            variant="secondary"
             size="icon"
-            className="h-9 w-9 rounded-full"
-            onClick={() =>
-              setTheme(resolvedTheme === "dark" ? "light" : "dark")
-            }
+            className="rounded-chip"
+            onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
             aria-label="Toggle theme"
           >
-            <Sun className="hidden h-4 w-4 dark:block" />
-            <Moon className="block h-4 w-4 dark:hidden" />
+            <Sun className="hidden dark:block" />
+            <Moon className="block dark:hidden" />
           </Button>
         </div>
       </div>

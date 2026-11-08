@@ -13,7 +13,7 @@ import {
 import { TOOLS, CATEGORIES } from "@/lib/tools";
 import { useStore } from "@/lib/store";
 import { useTheme } from "next-themes";
-import { Moon, Sun, Home } from "lucide-react";
+import { Moon, Sun, Home, Palette } from "lucide-react";
 
 export function CommandPalette() {
   const open = useStore((s) => s.paletteOpen);
@@ -50,11 +50,9 @@ export function CommandPalette() {
                 key={t.id}
                 onSelect={() => run(() => openTool(t.id))}
               >
-                <t.icon className="mr-2 h-4 w-4 text-primary" />
+                <t.icon className="mr-2 size-4 text-primary" />
                 <span>{t.name}</span>
-                <span className="ml-auto text-xs text-muted-foreground">
-                  {t.tagline}
-                </span>
+                <span className="ml-auto text-xs text-fg-faint">{t.tagline}</span>
               </CommandItem>
             ))}
           </CommandGroup>
@@ -62,7 +60,7 @@ export function CommandPalette() {
         <CommandSeparator />
         <CommandGroup heading="Actions">
           <CommandItem onSelect={() => run(goHome)}>
-            <Home className="mr-2 h-4 w-4" />
+            <Home className="mr-2 size-4" />
             Go home
           </CommandItem>
           <CommandItem
@@ -71,11 +69,19 @@ export function CommandPalette() {
             }
           >
             {theme === "dark" ? (
-              <Sun className="mr-2 h-4 w-4" />
+              <Sun className="mr-2 size-4" />
             ) : (
-              <Moon className="mr-2 h-4 w-4" />
+              <Moon className="mr-2 size-4" />
             )}
             Toggle theme
+          </CommandItem>
+          <CommandItem
+            onSelect={() => run(() => {
+              window.location.assign("/design");
+            })}
+          >
+            <Palette className="mr-2 size-4" />
+            Open design system
           </CommandItem>
         </CommandGroup>
       </CommandList>

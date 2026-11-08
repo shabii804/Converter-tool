@@ -1,26 +1,20 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { motion } from "framer-motion";
 import JSZip from "jszip";
 import { useStore } from "@/lib/store";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/kit/button";
+import { Card } from "@/components/kit/card";
+import { ResultCard } from "@/components/kit/result-card";
+import { SuccessCheck } from "@/components/kit/success-check";
+import { ProgressBar } from "@/components/kit/progress-bar";
 import { formatBytes, formatDuration, downloadBlob } from "@/lib/format";
-import { toast } from "sonner";
-import {
-  Download,
-  Package,
-  RotateCcw,
-  Home,
-  ShieldCheck,
-  CheckCircle2,
-  Loader2,
-} from "lucide-react";
+import { notify } from "@/components/kit/toast";
+import { RotateCcw, Home, ShieldCheck, Package, Loader2 } from "lucide-react";
 
 export function Done() {
   const results = useStore((s) => s.results);
   const stats = useStore((s) => s.stats);
-  const toolId = useStore((s) => s.toolId);
   const nextRun = useStore((s) => s.nextRun);
   const goHome = useStore((s) => s.goHome);
   const [zipping, setZipping] = useState(false);
@@ -45,28 +39,21 @@ export function Done() {
       const blob = await zip.generateAsync({ type: "blob" });
       downloadBlob(blob, "swiftpdf-results.zip");
     } catch {
-      toast.error("Could not build the ZIP file");
+      notify.error("Could not build the ZIP file");
     } finally {
       setZipping(false);
     }
   };
 
   return (
-    <section className="mx-auto flex max-w-3xl flex-col items-center px-4 py-12 sm:px-6 sm:py-16">
-      <motion.div
-        initial={{ scale: 0.6, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ type: "spring", stiffness: 220, damping: 16 }}
-        className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-500/15"
-      >
-        <CheckCircle2 className="h-10 w-10 text-emerald-500" />
-      </motion.div>
+    <section className="mx-auto flex max-w-3xl flex-col items-center px-4 py-16 sm:px-6 sm:py-24">
+      <SuccessCheck size={88} />
 
-      <h1 className="mt-5 text-2xl font-bold tracking-tight sm:text-3xl">
+      <h1 className="mt-6 text-h1 font-bold tracking-heading">
         Done — processed on your device
       </h1>
       {stats && (
-        <p className="mt-2 text-sm text-muted-foreground">
+        <p className="mt-2.5 text-sm text-fg-muted">
           {stats.toolName} · {stats.fileCount} file
           {stats.fileCount > 1 ? "s" : ""} · {formatDuration(stats.ms)}
         </p>
@@ -75,99 +62,94 @@ export function Done() {
       {/* download CTA */}
       <Button
         onClick={downloadAll}
-        className="mt-7 h-14 w-full max-w-sm rounded-2xl text-lg font-bold shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30"
-        size="lg"
+        size="xl"
+        className="mt-8 w-full max-w-sm shadow-glow"
       >
         {single ? (
           <>
-            <Download className="mr-2 h-5 w-5 fill-current" />
+            <DownloadIcon />
             Download {results[0].kind}
           </>
         ) : (
           <>
-            {zipping ? (
-              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            ) : (
-              <Package className="mr-2 h-5 w-5" />
-            )}
+            {zipping ? <Loader2 className="animate-spin" /> : <Package />}
             Download all ({results.length}) as ZIP
           </>
         )}
       </Button>
+      {zipping && (
+        <div className="mt-4 w-full max-w-sm">
+          <ProgressBar value={0.6} ariaLabel="Building ZIP file" />
+        </div>
+      )}
 
       {/* stats card */}
       {stats && (
-        <div className="mt-8 w-full rounded-2xl border bg-card p-5 shadow-sm">
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <Card className="mt-10 w-full p-6">
+          <div className="grid grid-cols-2 gap-5 sm:grid-cols-4">
             <Stat label="Input" value={formatBytes(stats.inputBytes)} />
             <Stat
               label="Output"
               value={formatBytes(stats.outputBytes)}
-              highlight={
-                saved !== null
-                  ? `−${saved}%`
-                  : undefined
-              }
+              highlight={saved !== null ? `−${saved}%` : undefined}
             />
             <Stat label="Time" value={formatDuration(stats.ms)} />
             <Stat label="Uploaded" value="0 bytes" accent />
           </div>
           {stats.note && (
-            <p className="mt-4 border-t pt-3 text-xs text-muted-foreground">
+            <p className="mt-5 border-t border-border-subtle pt-4 text-[13px] text-fg-muted">
               {stats.note}
             </p>
           )}
-        </div>
+        </Card>
       )}
 
       {/* file list for multiple results */}
       {results.length > 1 && (
-        <div className="mt-4 w-full rounded-2xl border bg-card p-3 shadow-sm">
-          <div className="max-h-64 space-y-1 overflow-y-auto">
-            {results.map((r) => (
-              <button
-                key={r.id}
-                onClick={() => downloadBlob(r.blob, r.name)}
-                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition hover:bg-muted"
-              >
-                <Download className="h-4 w-4 shrink-0 text-primary" />
-                <span className="min-w-0 flex-1 truncate text-xs font-medium">
-                  {r.name}
-                </span>
-                <span className="shrink-0 text-[11px] text-muted-foreground">
-                  {formatBytes(r.size)}
-                </span>
-              </button>
-            ))}
-          </div>
+        <div className="mt-5 w-full space-y-2.5">
+          {results.map((r) => (
+            <ResultCard
+              key={r.id}
+              name={r.name}
+              size={r.size}
+              kind={r.kind}
+              onDownload={() => downloadBlob(r.blob, r.name)}
+            />
+          ))}
         </div>
       )}
 
       {/* actions */}
-      <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-        <Button
-          variant="outline"
-          onClick={nextRun}
-          className="h-11 rounded-xl px-5 font-semibold"
-        >
-          <RotateCcw className="mr-2 h-4 w-4" />
+      <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
+        <Button variant="secondary" size="lg" onClick={nextRun}>
+          <RotateCcw />
           Run another file
         </Button>
-        <Button
-          variant="ghost"
-          onClick={goHome}
-          className="h-11 rounded-xl px-5 font-semibold"
-        >
-          <Home className="mr-2 h-4 w-4" />
+        <Button variant="ghost" size="lg" onClick={goHome}>
+          <Home />
           Home
         </Button>
       </div>
 
-      <div className="mt-8 flex items-center gap-2 text-[11px] text-muted-foreground">
-        <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+      <div className="mt-10 flex items-center gap-2 text-micro text-fg-faint">
+        <ShieldCheck className="size-3.5 text-success" />
         Your originals were never uploaded — they are still exactly where you left them
       </div>
     </section>
+  );
+}
+
+function DownloadIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M12 3v12m0 0l-5-5m5 5l5-5M4 21h16"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
@@ -184,17 +166,15 @@ function Stat({
 }) {
   return (
     <div className="text-center sm:text-left">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+      <p className="text-micro font-medium uppercase tracking-wide text-fg-faint">
         {label}
       </p>
       <p
-        className={`mt-1 text-sm font-bold sm:text-base ${
-          accent ? "text-emerald-600 dark:text-emerald-400" : ""
-        }`}
+        className={`mt-1.5 text-base font-bold ${accent ? "text-success" : ""}`}
       >
         {value}
         {highlight && (
-          <span className="ml-1.5 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+          <span className="ml-1.5 rounded-chip bg-success/10 px-1.5 py-0.5 text-[10px] font-bold text-success">
             {highlight}
           </span>
         )}
