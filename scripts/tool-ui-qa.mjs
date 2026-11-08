@@ -9,7 +9,7 @@ import { chromium } from "playwright";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-const BASE = process.env.BASE_URL ?? "http://localhost:3000";
+const BASE = process.env.BASE_URL ?? "http://localhost:3101";
 const SAMPLES = path.join(process.cwd(), "tests/baseline/samples");
 const SHOTS = path.join(process.cwd(), "tests/toolcheck/screens");
 mkdirSync(SHOTS, { recursive: true });
@@ -56,7 +56,7 @@ page.on("console", (m) => {
 });
 
 async function openTool(id) {
-  await page.goto(`${BASE}/tool/${id}`, { waitUntil: "networkidle" });
+  await page.goto(`${BASE}/en/tool/${id}`, { waitUntil: "networkidle" });
   await page.waitForTimeout(300);
 }
 
@@ -240,7 +240,7 @@ if (await expectDone("resize-image")) await shot(page, "done-resize-image.png");
 console.log("responsive:");
 for (const width of [360, 768, 1440]) {
   await page.setViewportSize({ width, height: 900 });
-  for (const route of ["/", "/tool/edit-pdf", "/tool/text-to-pdf", "/tool/redact-pdf"]) {
+  for (const route of ["/en", "/en/tool/edit-pdf", "/en/tool/text-to-pdf", "/en/tool/redact-pdf"]) {
     await page.goto(BASE + route, { waitUntil: "networkidle" });
     await page.waitForTimeout(500);
     await checkChrome(page, route, width);
@@ -250,7 +250,7 @@ for (const width of [360, 768, 1440]) {
 
 /* ---------- 14. keyboard access: focus ring visible ---------- */
 await page.setViewportSize({ width: 1440, height: 900 });
-await page.goto(`${BASE}/tool/pdf-to-png`, { waitUntil: "networkidle" });
+await page.goto(`${BASE}/en/tool/pdf-to-png`, { waitUntil: "networkidle" });
 await page.keyboard.press("Tab");
 const ring = await page.evaluate(() => {
   const el = document.activeElement;

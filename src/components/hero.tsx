@@ -52,12 +52,7 @@ export function Hero() {
     <section className="relative overflow-hidden">
       <MeshBackdrop />
       <div className="relative mx-auto max-w-6xl px-4 pb-4 pt-10 sm:px-6 sm:pt-14">
-        <motion.div
-          initial={reduce ? undefined : { opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={reduce ? { duration: 0 } : { duration: 0.4, ease: "easeOut" }}
-          className="mx-auto max-w-3xl text-center"
-        >
+        <div className="mx-auto max-w-3xl text-center">
           <h1 className="text-display font-bold tracking-heading">
             {t.hero.h1a}{" "}
             <span className="text-gradient">{t.hero.h1b}</span>
@@ -65,15 +60,10 @@ export function Hero() {
           <p className="mx-auto mt-4 max-w-xl text-body text-fg-muted sm:text-base">
             {t.hero.sub}
           </p>
-        </motion.div>
+        </div>
 
         {/* dropzone (Ctrl+V paste handled inside Dropzone) */}
-        <motion.div
-          initial={reduce ? undefined : { opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={reduce ? { duration: 0 } : { duration: 0.45, delay: 0.08, ease: "easeOut" }}
-          className="relative mx-auto mt-8 max-w-3xl sm:mt-10"
-        >
+        <div className="relative mx-auto mt-8 max-w-3xl sm:mt-10">
           <Dropzone
             accept="application/pdf,image/jpeg,image/png,.docx"
             onFiles={onFiles}
@@ -188,7 +178,7 @@ export function Hero() {
               </div>
             </motion.div>
           )}
-        </motion.div>
+        </div>
       </div>
     </section>
   );

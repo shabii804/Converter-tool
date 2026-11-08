@@ -186,15 +186,30 @@ const AnnotationEditor = dynamic(
 
 /* ---------- main component ---------- */
 
-export function Workspace({ hideHeader }: { hideHeader?: boolean }) {
-  const toolId = useStore((s) => s.toolId)!;
+export function Workspace({
+  hideHeader,
+  initialToolId,
+  initialOpts,
+}: {
+  hideHeader?: boolean;
+  /** server-known tool id (deep links / intent pages) — enables full SSR */
+  initialToolId?: string;
+  /** server-known option presets (intent pages) — merged once, deterministic */
+  initialOpts?: Record<string, unknown>;
+}) {
+  const storeToolId = useStore((s) => s.toolId);
+  const toolId = storeToolId ?? initialToolId ?? "";
   const tool = toolById(toolId);
   const files = useStore((s) => s.files);
   const addFiles = useStore((s) => s.addFiles);
   const removeFile = useStore((s) => s.removeFile);
   const goHome = useStore((s) => s.goHome);
 
-  const [opts, setOpts] = useState<Options>(defaultOptions);
+  /* initializer runs identically on server + client first render → no CLS */
+  const [opts, setOpts] = useState<Options>(() => ({
+    ...defaultOptions(),
+    ...((initialOpts ?? {}) as Partial<Options>),
+  }));
   const [running, setRunning] = useState(false);
   const moreInputRef = useRef<HTMLInputElement>(null);
 

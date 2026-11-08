@@ -1,6 +1,5 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
 import Link from "next/link";
 import { Star } from "lucide-react";
 import { type ToolDef } from "@/lib/tools";
@@ -9,15 +8,13 @@ import { categoryMeta } from "./category";
 import { IconTile } from "./icon-tile";
 import { cn } from "@/lib/utils";
 
-const MotionLink = motion.create(Link);
-
 /**
  * ToolCard — one consistent card per tool. Renders as a real crawlable
  * <a> to /<locale>/tool/[id]; clicking also syncs the in-app state so
  * dropped files carry over.
- * Hover lift -2px (disabled under prefers-reduced-motion).
- * Favorite toggle sits as a sibling button (never nested inside the card
- * — valid HTML, keyboard accessible).
+ * Entrance animation is pure CSS (compositor-friendly, no JS driver) and
+ * disabled under prefers-reduced-motion.
+ * Favorite toggle sits as a sibling button (valid HTML, keyboard accessible).
  */
 export function ToolCard({
   tool,
@@ -36,24 +33,17 @@ export function ToolCard({
   favAddLabel?: string;
   favRemoveLabel?: string;
 }) {
-  const reduce = useReducedMotion();
   const meta = categoryMeta(tool.category);
   const localeHref = useLocaleHref();
 
   return (
-    <div className="group relative">
-      <MotionLink
+    <div className="group relative tool-card-enter" style={{ "--enter-delay": `${Math.min(index * 25, 250)}ms` } as React.CSSProperties}>
+      <Link
         href={localeHref(`/tool/${tool.id}`)}
         onClick={() => onOpen(tool.id)}
-        initial={reduce ? undefined : { opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={
-          reduce ? { duration: 0 } : { duration: 0.28, delay: Math.min(index * 0.025, 0.25), ease: "easeOut" }
-        }
-        whileHover={reduce ? undefined : { y: -2 }}
         className={cn(
           "relative flex min-h-[120px] w-full flex-col items-start gap-3 rounded-card border border-border bg-surface-2 p-5 pr-14 text-left shadow-xs outline-none",
-          "transition-[box-shadow,border-color] duration-200 hover:border-border-strong hover:shadow-md",
+          "transition-[box-shadow,border-color,translate] duration-200 hover:border-border-strong hover:shadow-md hover:-translate-y-0.5",
           "focus-visible:ring-2 focus-visible:ring-ring"
         )}
         aria-label={`${tool.name} — ${tool.tagline}`}
@@ -76,7 +66,7 @@ export function ToolCard({
           <span className="block text-sm font-bold leading-tight">{tool.name}</span>
           <span className="mt-1 block text-[13px] leading-snug text-fg-muted">{tool.tagline}</span>
         </span>
-      </MotionLink>
+      </Link>
 
       {onToggleFavorite && (
         <button

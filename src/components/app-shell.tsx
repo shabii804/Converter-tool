@@ -18,10 +18,13 @@ import { Footer } from "@/components/footer";
 import { Hero } from "@/components/hero";
 import { ToolGrid } from "@/components/tool-grid";
 import { HomeSections } from "@/components/home-sections";
-import { Workspace } from "@/components/workspace";
-import { Processing } from "@/components/processing";
-import { Done } from "@/components/done";
+import dynamic from "next/dynamic";
 import { CommandPalette } from "@/components/command-palette";
+
+/* code-split: tool UI never ships in the home bundle */
+const Workspace = dynamic(() => import("./workspace").then((m) => m.Workspace));
+const Processing = dynamic(() => import("./processing").then((m) => m.Processing));
+const Done = dynamic(() => import("./done").then((m) => m.Done));
 
 const views = {
   home: "home",
@@ -37,13 +40,17 @@ export function AppShell({
   locale: Lang;
   deepLinkToolId?: string;
 }) {
-  const view = useStore((s) => s.view);
-  const hydrateLocal = useStore((s) => s.hydrateLocal);
-  const t = useCopy();
+  const storeView = useStore((s) => s.view);
   const reduce = useReducedMotion();
   const router = useRouter();
   const openedRef = useRef(false);
   const [mounted, setMounted] = useState(false);
+  /* on tool deep links, render the tool view during SSR too (SEO + LCP):
+     the client's first render matches, then the effect opens the tool in
+     the store for real. */
+  const view = deepLinkToolId && !mounted ? "tool" : storeView;
+  const hydrateLocal = useStore((s) => s.hydrateLocal);
+  const t = useCopy();
 
   useEffect(() => {
     setMounted(true);
@@ -83,7 +90,7 @@ export function AppShell({
       </a>
       <Header />
       <main className="flex-1">
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={views[view]}
             initial={reduce ? undefined : { opacity: 0, y: 8 }}
@@ -98,10 +105,9 @@ export function AppShell({
                 <HomeSections />
               </>
             )}
-            {view === "home" && deepLinkToolId && !mounted && (
-              <div className="min-h-[60dvh]" aria-hidden="true" />
+            {view === "tool" && (
+              <Workspace initialToolId={deepLinkToolId} />
             )}
-            {view === "tool" && <Workspace />}
             {view === "processing" && <Processing />}
             {view === "done" && <Done />}
           </motion.div>

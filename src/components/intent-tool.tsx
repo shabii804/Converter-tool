@@ -28,7 +28,7 @@ export function IntentTool({
 
   return (
     <div className="rounded-card border border-border bg-surface-1/40 p-4 sm:p-6">
-      <Workspace hideHeader />
+      <Workspace hideHeader initialToolId={toolId} initialOpts={preset} />
     </div>
   );
 }

@@ -23,3 +23,24 @@ html[dir="rtl"] h2,
 html[dir="rtl"] h3 {
   letter-spacing: normal;
 }
+
+/* ---------- compositor-friendly entrance animation ---------- */
+@keyframes tool-card-in {
+  from {
+    opacity: 0;
+    translate: 0 10px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+.tool-card-enter {
+  animation: tool-card-in 0.28s ease-out both;
+  animation-delay: var(--enter-delay, 0ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .tool-card-enter {
+    animation: none;
+  }
+}
