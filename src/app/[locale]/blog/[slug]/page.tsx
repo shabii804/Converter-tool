@@ -5,6 +5,7 @@ import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { LocaleBoundary } from "@/components/locale-boundary";
 import { ShareButton } from "@/components/share-button";
+import { AdSlot } from "@/components/ad-slot";
 import { ARTICLES, articleBySlug } from "@/lib/blog-articles";
 import { isLocale, type Lang } from "@/lib/i18n";
 import { breadcrumbLd, canonicalUrl } from "@/lib/seo";
@@ -147,6 +148,7 @@ export default async function ArticlePage({
             ))}
           </div>
 
+          <AdSlot height={90} slot="blog-article-footer" />
           {tool && (
             <div className="mt-12 rounded-card border border-border bg-surface-1/60 p-6 text-center">
               <p className="text-sm font-semibold">Try it yourself — it stays on your device</p>

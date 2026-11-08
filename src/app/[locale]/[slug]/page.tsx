@@ -5,6 +5,7 @@ import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { LocaleBoundary } from "@/components/locale-boundary";
 import { IntentTool } from "@/components/intent-tool";
+import { AdSlot } from "@/components/ad-slot";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/kit/accordion";
 import { INTENT_SLUGS, intentBySlug } from "@/lib/intent-pages";
 import { isLocale, type Lang } from "@/lib/i18n";
@@ -133,6 +134,7 @@ export default async function IntentPage({
             </div>
           </section>
 
+          <AdSlot height={90} slot="intent-footer" />
           <p className="mt-12 rounded-control border border-success/25 bg-success/[0.07] px-4 py-3.5 text-[13px] leading-relaxed text-fg-muted">
             Every tool on this page runs entirely in your browser — nothing is
             uploaded, there is no account, and it keeps working offline once
