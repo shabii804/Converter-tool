@@ -30,6 +30,7 @@ import {
   Layers,
   FileCog,
   QrCode,
+  ScanText,
 } from "lucide-react";
 
 export type ToolCategory = "core" | "convert" | "edit" | "security";
@@ -498,6 +499,21 @@ export const TOOLS: ToolDef[] = [
     minFiles: 0,
     maxFiles: 0,
     input: "none",
+  },
+  {
+    id: "ocr",
+    name: "OCR Text Recognition",
+    tagline: "Read text out of scans",
+    description:
+      "Recognize text in scanned PDFs and images with on-device OCR and save it as a .txt file. The engine and language pack load once, then everything runs in your browser.",
+    keywords: "ocr scan recognize text searchable image recognition extract scanned",
+    badge: "New",
+    category: "convert",
+    icon: ScanText,
+    accept: "application/pdf,image/jpeg,image/png,image/webp",
+    minFiles: 1,
+    maxFiles: 5,
+    input: "pdf",
   },
 ];
 

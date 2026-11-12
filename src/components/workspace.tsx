@@ -133,6 +133,9 @@ interface Options {
   qrSize: number;
   qrPageSize: "a4" | "letter";
   qrCaption: string;
+  // ocr
+  ocrLang: "eng" | "spa" | "fra" | "por" | "hin" | "urd" | "ara";
+  ocrPageMarkers: boolean;
 }
 
 const defaultOptions = (): Options => ({
@@ -201,6 +204,8 @@ const defaultOptions = (): Options => ({
   qrSize: 768,
   qrPageSize: "a4",
   qrCaption: "",
+  ocrLang: "eng",
+  ocrPageMarkers: true,
 });
 
 /** Friendly large-file threshold (honest copy, no fake limits). */
@@ -401,7 +406,7 @@ export function Workspace({
                         `Wrong type for ${tool.name}`
                       );
                   }}
-                  title={`Drop ${tool.input === "image" ? "images" : tool.input === "docx" ? ".docx files" : "PDF files"} here`}
+                  title={`Drop ${tool.id === "ocr" ? "PDF or image files" : tool.input === "image" ? "images" : tool.input === "docx" ? ".docx files" : "PDF files"} here`}
                   subtitle="or click to browse"
                 />
                 <div className="flex justify-center">
@@ -648,6 +653,8 @@ function buildOptions(
         pageSize: opts.qrPageSize,
         caption: opts.qrCaption,
       };
+    case "ocr":
+      return { lang: opts.ocrLang, pageMarkers: opts.ocrPageMarkers };
     default:
       return {};
   }
@@ -953,7 +960,7 @@ function OptionsPanel({
       return (
         <p className="rounded-control bg-surface-1 p-4 text-[13px] leading-relaxed text-fg-muted">
           Text is extracted into a fully editable file. Scanned PDFs contain
-          images only — for those, use PDF to JPG or an OCR tool.
+          images only — for those, use the OCR Text Recognition tool.
         </p>
       );
 
@@ -1529,6 +1536,54 @@ function OptionsPanel({
 
     case "qr-to-pdf":
       return <QrOptions opts={opts} set={set} />;
+
+    case "ocr":
+      return (
+        <div className="space-y-5">
+          <div>
+            <Label className="mb-2 block text-[13px] font-medium">
+              Text language
+            </Label>
+            <Select
+              value={opts.ocrLang}
+              onValueChange={(v) => set("ocrLang", v as Options["ocrLang"])}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="eng">English</SelectItem>
+                <SelectItem value="spa">Spanish · Español</SelectItem>
+                <SelectItem value="fra">French · Français</SelectItem>
+                <SelectItem value="por">Portuguese · Português</SelectItem>
+                <SelectItem value="hin">Hindi · हिन्दी</SelectItem>
+                <SelectItem value="urd">Urdu · اردو</SelectItem>
+                <SelectItem value="ara">Arabic · العربية</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center justify-between rounded-control border border-border p-4">
+            <div>
+              <Label className="text-[13px] font-medium">
+                Mark page breaks in the output
+              </Label>
+              <p className="mt-0.5 text-micro text-fg-faint">
+                Adds a “----- Page 2 -----” line between pages
+              </p>
+            </div>
+            <Switch
+              checked={opts.ocrPageMarkers}
+              onCheckedChange={(v) => set("ocrPageMarkers", v)}
+            />
+          </div>
+          <p className="text-[13px] leading-relaxed text-fg-faint">
+            OCR runs on this device with Tesseract.js. The first run downloads
+            the engine and language pack from a public CDN (about 2–15 MB per
+            language); after that it stays browser-cached and also works
+            offline. Recognition is never perfect — proofread important text.
+          </p>
+        </div>
+      );
 
     default:
       return null;

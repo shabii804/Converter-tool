@@ -1520,6 +1520,117 @@ async function runQrToPdf(
 }
 
 /* ================================================================
+   11) OCR — on-device text recognition (Tesseract.js, lazy-loaded)
+   ================================================================ */
+
+export interface OcrOptions {
+  lang: "eng" | "spa" | "fra" | "por" | "hin" | "urd" | "ara";
+  pageMarkers: boolean;
+}
+
+const OCR_LANGS = ["eng", "spa", "fra", "por", "hin", "urd", "ara"] as const;
+const OCR_LANG_NAMES: Record<(typeof OCR_LANGS)[number], string> = {
+  eng: "English",
+  spa: "Spanish",
+  fra: "French",
+  por: "Portuguese",
+  hin: "Hindi",
+  urd: "Urdu",
+  ara: "Arabic",
+};
+
+async function runOcr(
+  entries: { id: string; file: File }[],
+  opts: OcrOptions,
+  cb: RunCallbacks
+): Promise<EngineResult> {
+  const lang = (OCR_LANGS as readonly string[]).includes(opts.lang)
+    ? opts.lang
+    : "eng";
+
+  cb.onStatus?.(
+    "Loading the OCR engine — the first run downloads the language pack once, after that it is cached"
+  );
+
+  const { createWorker } = await import("tesseract.js");
+  const worker = await createWorker(lang, 1, {
+    workerPath:
+      "https://cdn.jsdelivr.net/npm/tesseract.js@v7.0.0/dist/worker.min.js",
+    corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@7.0.0",
+    langPath: "https://tessdata.projectnaptha.com/4.0.0_fast",
+    logger: () => {},
+  });
+
+  try {
+    const outFiles: EngineResult["files"] = [];
+    const perFilePages: number[] = [];
+
+    for (let i = 0; i < entries.length; i++) {
+      const { id, file } = entries[i];
+      const isPdf =
+        file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+      const chunks: string[] = [];
+      let pageCount = 0;
+
+      if (isPdf) {
+        const bytes = await fileToBytes(file);
+        const doc = await tryOpenWithPdfjs(bytes, file.name);
+        const n = doc.numPages;
+        for (let p = 1; p <= n; p++) {
+          const canvas = await renderPageToCanvas(doc, p, 2);
+          cb.onStatus?.(`Recognizing page ${p}/${n} of ${file.name}`);
+          const { data } = await worker.recognize(canvas);
+          if (opts.pageMarkers && p > 1)
+            chunks.push(`\n\n----- Page ${p} -----\n`);
+          chunks.push(data.text ?? "");
+          pageCount++;
+          cb.onFileProgress?.(id, p / n);
+          cb.onOverall?.(((i + p / n) / entries.length) * 0.95);
+          await tick();
+        }
+      } else {
+        const bmp = await decodeImage(file);
+        assertPixels(bmp.width, bmp.height, file.name);
+        const canvas = bitmapToCanvas(bmp, (ctx) => ctx.drawImage(bmp, 0, 0));
+        cb.onStatus?.(`Recognizing ${file.name}`);
+        const { data } = await worker.recognize(canvas);
+        chunks.push(data.text ?? "");
+        pageCount = 1;
+        bmp.close?.();
+        cb.onFileProgress?.(id, 1);
+        cb.onOverall?.(((i + 1) / entries.length) * 0.95);
+      }
+
+      const text = chunks.join("");
+      if (!text.trim()) {
+        throw new Error(
+          `No text could be recognized in "${file.name}" — try a sharper scan, or a different text language`
+        );
+      }
+      const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+      outFiles.push({
+        name: `${baseName(file.name)}-ocr.txt`,
+        blob,
+        size: blob.size,
+        kind: "TXT",
+      });
+      perFilePages.push(pageCount);
+      cb.onFileProgress?.(id, 1);
+      await tick();
+    }
+    cb.onOverall?.(1);
+
+    const totalPages = perFilePages.reduce((a, b) => a + b, 0);
+    return {
+      files: outFiles,
+      note: `${totalPages} page(s) recognized in ${OCR_LANG_NAMES[lang as keyof typeof OCR_LANG_NAMES]} · OCR ran entirely on your device — the language pack downloads once from the Tesseract CDN, then stays browser-cached`,
+    };
+  } finally {
+    await worker.terminate();
+  }
+}
+
+/* ================================================================
    DISPATCHER
    ================================================================ */
 
@@ -1538,6 +1649,7 @@ export const EXTRA_TOOL_IDS = [
   "flatten",
   "edit-metadata",
   "qr-to-pdf",
+  "ocr",
 ] as const;
 
 export type ExtraToolId = (typeof EXTRA_TOOL_IDS)[number];
@@ -1581,6 +1693,8 @@ export async function runExtraTool(
       return runEditMetadata(entries, opts, cb);
     case "qr-to-pdf":
       return runQrToPdf(entries, opts, cb);
+    case "ocr":
+      return runOcr(entries, opts, cb);
     default:
       throw new Error("Unknown tool");
   }
