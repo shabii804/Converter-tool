@@ -11,7 +11,7 @@ import "@/lib/compat-shims";
  */
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { useStore } from "@/lib/store";
 import { LocaleProvider } from "@/lib/i18n-hooks";
 import { useCopy } from "@/lib/i18n-hooks";
@@ -93,14 +93,16 @@ export function AppShell({
       </a>
       <Header />
       <main className="flex-1">
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={views[view]}
-            initial={reduce ? undefined : { opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={reduce ? undefined : { opacity: 0, y: -8 }}
-            transition={reduce ? { duration: 0 } : { duration: 0.22, ease: "easeOut" }}
-          >
+        {/* keyed enter-only transition. AnimatePresence mode="wait" used to
+            gate the next view behind the previous view's exit animation —
+            tools that finish in <300ms flipped the key twice mid-exit and
+            the done view never mounted (run hung at 100% with no error). */}
+        <motion.div
+          key={views[view]}
+          initial={reduce ? undefined : { opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={reduce ? { duration: 0 } : { duration: 0.22, ease: "easeOut" }}
+        >
             {view === "home" && (!deepLinkToolId || mounted) && (
               <>
                 <Hero />
@@ -108,13 +110,12 @@ export function AppShell({
                 <HomeSections />
               </>
             )}
-            {view === "tool" && (
-              <Workspace initialToolId={deepLinkToolId} />
-            )}
-            {view === "processing" && <Processing />}
-            {view === "done" && <Done />}
-          </motion.div>
-        </AnimatePresence>
+          {view === "tool" && (
+            <Workspace initialToolId={deepLinkToolId} />
+          )}
+          {view === "processing" && <Processing />}
+          {view === "done" && <Done />}
+        </motion.div>
       </main>
       <Footer />
       <CommandPalette />
