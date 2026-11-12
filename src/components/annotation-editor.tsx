@@ -66,6 +66,20 @@ const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice
 const INK_COLORS = ["#111827", "#1D4ED8", "#DC2626", "#16A34A"];
 const HIGHLIGHT_COLOR = "#FDE047";
 
+/** per-tool instruction shown under the toolbar */
+const TOOL_HINTS: Record<string, string> = {
+  select: "Tap an item to select it — drag to move, corner handle to resize.",
+  text: "Click anywhere on the page to place a text box, then type in the panel below.",
+  highlight: "Drag over an area to highlight it.",
+  rect: "Drag to draw a rectangle.",
+  ellipse: "Drag to draw an ellipse.",
+  line: "Drag to draw a straight line.",
+  draw: "Draw freely with your mouse, pen or finger.",
+  image: "Click on the page to pick an image (PNG / JPG / WebP).",
+  sig: "Pick a signature below, then place it on the page.",
+  redact: "Drag to draw a black box over the content you want removed.",
+};
+
 interface PageMeta {
   vpt1: any; // pdf.js viewport at scale 1 (rotation applied)
   width1: number;
@@ -108,6 +122,12 @@ export function AnnotationEditor({
     id: string;
     startV: { x: number; y: number };
     orig: EditorItem;
+  }>(null);
+  const resizeRef = useRef<null | {
+    id: string;
+    orig: EditorItem;
+    startV: { x: number; y: number };
+    anchorV: { x: number; y: number };
   }>(null);
   const historyPush = useCallback((prev: EditorItem[]) => {
     setHistory((h) => [...h.slice(-29), prev]);
@@ -432,7 +452,11 @@ export function AnnotationEditor({
       setSelectedId(hit?.id ?? null);
       if (hit) {
         dragRef.current = { id: hit.id, startV: v, orig: { ...hit } };
-        (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+        try {
+          (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+        } catch {
+          /* capture is best-effort — synthetic/automation pointers have no active id */
+        }
       }
       return;
     }
@@ -480,7 +504,11 @@ export function AnnotationEditor({
       return;
     }
     // drag-creation tools
-    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    try {
+      (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    } catch {
+      /* best-effort */
+    }
     if (tool === "draw") {
       const p = toPdf(v.x, v.y);
       setDraft({ startV: v, curV: v, points: [p] });
@@ -517,6 +545,18 @@ export function AnnotationEditor({
 
   const onPointerMove = (e: React.PointerEvent) => {
     const v = pointerPos(e);
+    if (resizeRef.current) {
+      const { id, orig, startV, anchorV } = resizeRef.current;
+      const d0 = Math.hypot(startV.x - anchorV.x, startV.y - anchorV.y) || 1;
+      const d1 = Math.hypot(v.x - anchorV.x, v.y - anchorV.y);
+      const f = Math.max(0.12, Math.min(8, d1 / d0));
+      if (orig.kind === "text") {
+        updateItem(id, { size: Math.max(6, Math.min(96, Math.round((orig.size ?? 14) * f))) }, false);
+      } else {
+        updateItem(id, { w: orig.w! * f, h: orig.h! * f }, false);
+      }
+      return;
+    }
     if (dragRef.current) {
       const { id, orig } = dragRef.current;
       if (orig.kind === "line" || orig.kind === "draw") {
@@ -554,6 +594,11 @@ export function AnnotationEditor({
   };
 
   const onPointerUp = () => {
+    if (resizeRef.current) {
+      resizeRef.current = null;
+      void serialize(itemsRef.current);
+      return;
+    }
     if (dragRef.current) {
       dragRef.current = null;
       void serialize(itemsRef.current);
@@ -707,29 +752,34 @@ export function AnnotationEditor({
     <div className="space-y-4">
       {/* toolbar */}
       <div className="flex flex-wrap items-center gap-1.5" role="toolbar" aria-label="Editor tools">
-        {toolsForMode.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => {
-              if (t.id === "sig") {
-                setSigModalOpen(true);
-                setTool("select");
-              } else {
-                setTool(t.id);
-              }
-            }}
-            aria-pressed={tool === t.id && t.id !== "sig"}
-            aria-label={t.label}
-            title={t.label}
-            className={cn(
-              "flex size-11 items-center justify-center rounded-control border transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              tool === t.id
-                ? "border-ring bg-gradient-brand text-white shadow-glow"
-                : "border-border bg-background text-fg-muted hover:border-border-strong hover:text-foreground"
+        {toolsForMode.map((t, i) => (
+          <span key={t.id} className="flex items-center gap-1.5">
+            {(i === 1 || i === 4) && mode === "edit" && (
+              <span className="mx-0.5 hidden h-6 w-px bg-border max-sm:hidden sm:block" aria-hidden="true" />
             )}
-          >
-            <t.icon className="size-4.5" aria-hidden="true" />
-          </button>
+            <button
+              onClick={() => {
+                if (t.id === "sig") {
+                  setSigModalOpen(true);
+                  setTool("select");
+                } else {
+                  setTool(t.id);
+                }
+              }}
+              aria-pressed={tool === t.id && t.id !== "sig"}
+              aria-label={t.label}
+              title={t.label}
+              className={cn(
+                "flex h-11 w-11 items-center justify-center gap-1.5 rounded-control border transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-auto sm:px-3.5",
+                tool === t.id
+                  ? "border-ring bg-gradient-brand text-white shadow-glow"
+                  : "border-border bg-background text-fg-muted hover:border-border-strong hover:text-foreground"
+              )}
+            >
+              <t.icon className="size-4.5 shrink-0" aria-hidden="true" />
+              <span className="hidden whitespace-nowrap text-[13px] font-semibold sm:inline">{t.label}</span>
+            </button>
+          </span>
         ))}
         {mode === "edit" && (
           <label className="ml-1 flex size-11 items-center justify-center rounded-control border border-border bg-background" title="Ink color">
@@ -763,6 +813,13 @@ export function AnnotationEditor({
           </button>
         </div>
       </div>
+
+      {/* what the active tool does — one honest line, always visible */}
+      {!loadError && (
+        <p className="rounded-control border border-border-subtle bg-surface-1/70 px-3 py-2 text-[13px] text-fg-muted">
+          {TOOL_HINTS[tool] ?? ""}
+        </p>
+      )}
 
       {/* canvas area */}
       {loadError ? (
@@ -804,9 +861,13 @@ export function AnnotationEditor({
                     return (
                       <div
                         key={it.id}
+                        onDoubleClick={() => {
+                          setSelectedId(it.id);
+                          setTimeout(() => document.getElementById("ann-text")?.focus(), 60);
+                        }}
                         className={cn(
-                          "absolute cursor-move whitespace-pre rounded-sm border px-0.5",
-                          sel ? "border-ring bg-primary/10" : "border-transparent"
+                          "absolute cursor-move whitespace-pre rounded-sm border border-transparent px-0.5",
+                          sel && "bg-primary/10"
                         )}
                         style={{
                           left: box.x,
@@ -820,6 +881,8 @@ export function AnnotationEditor({
                                 ? "monospace"
                                 : "system-ui, sans-serif",
                           fontWeight: it.font?.includes("bold") ? 700 : 400,
+                          outline: sel ? `${Math.max(1.5, 2 / displayScale)}px solid var(--ring)` : undefined,
+                          outlineOffset: sel ? `${1 / displayScale}px` : undefined,
                         }}
                       >
                         {it.text}
@@ -865,12 +928,14 @@ export function AnnotationEditor({
                         key={it.id}
                         src={it.dataUrl}
                         alt={it.kind === "signature" ? "Signature" : "Inserted image"}
-                        className={cn("absolute cursor-move", sel && "outline outline-2 outline-ring")}
+                        className="absolute cursor-move"
                         style={{
                           left: box.x,
                           top: box.y,
                           width: box.w,
                           height: box.h,
+                          outline: sel ? `${Math.max(1.5, 2 / displayScale)}px solid var(--ring)` : undefined,
+                          outlineOffset: sel ? `${1 / displayScale}px` : undefined,
                         }}
                         draggable={false}
                       />
@@ -882,14 +947,15 @@ export function AnnotationEditor({
                       key={it.id}
                       className={cn(
                         "absolute cursor-move",
-                        it.kind === "ellipse" && "rounded-[50%]",
-                        sel && "outline outline-2 outline-ring outline-offset-1"
+                        it.kind === "ellipse" && "rounded-[50%]"
                       )}
                       style={{
                         left: box.x,
                         top: box.y,
                         width: box.w,
                         height: box.h,
+                        outline: sel ? `${Math.max(1.5, 2 / displayScale)}px solid var(--ring)` : undefined,
+                        outlineOffset: sel ? `${1 / displayScale}px` : undefined,
                         background:
                           it.kind === "redact"
                             ? "#000"
@@ -906,6 +972,45 @@ export function AnnotationEditor({
                     />
                   );
                 })}
+                {/* corner resize handle for text / image / signature */}
+                {tool === "select" &&
+                  selected &&
+                  selected.page === pageIndex &&
+                  (selected.kind === "text" || selected.kind === "image" || selected.kind === "signature") &&
+                  (() => {
+                    const sbox = itemViewBox(selected);
+                    if (!sbox) return null;
+                    const hs = 13 / displayScale;
+                    return (
+                      <div
+                        role="button"
+                        aria-label="Resize handle"
+                        className="absolute z-10 cursor-nwse-resize rounded-full border-2 border-white bg-ring shadow-md"
+                        style={{
+                          left: sbox.x + sbox.w,
+                          top: sbox.y + sbox.h,
+                          width: hs,
+                          height: hs,
+                          transform: "translate(-50%, -50%)",
+                          touchAction: "none",
+                        }}
+                        onPointerDown={(e) => {
+                          e.stopPropagation();
+                          resizeRef.current = {
+                            id: selected.id,
+                            orig: { ...selected },
+                            startV: pointerPos(e),
+                            anchorV: { x: sbox.x, y: sbox.y },
+                          };
+                          try {
+                            (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+                          } catch {
+                            /* best-effort — move/up still bubble to the overlay */
+                          }
+                        }}
+                      />
+                    );
+                  })()}
                 {/* live draft */}
                 {draft && (
                   <div
@@ -1047,7 +1152,7 @@ export function AnnotationEditor({
           ) : (
             <div className="flex items-center justify-between gap-3">
               <p className="text-[13px] text-fg-muted">
-                {labelFor(selected)} — drag to move it, or delete it.
+                {labelFor(selected)} — drag to move, corner handle to resize.
               </p>
               <button
                 onClick={deleteSelected}
