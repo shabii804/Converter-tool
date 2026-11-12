@@ -501,84 +501,425 @@ async function runPdfToWord(
   _opts: Record<string, never>,
   cb: RunCallbacks
 ): Promise<EngineResult> {
-  const { Document, Packer, Paragraph, TextRun, HeadingLevel } = await import(
-    "docx"
-  );
+  const {
+    Document,
+    Packer,
+    Paragraph,
+    TextRun,
+    HeadingLevel,
+    AlignmentType,
+    PageBreak,
+    Tab,
+    TabStopType,
+  } = await import("docx");
   const outFiles: EngineResult["files"] = [];
+
+  type Part = {
+    x: number;
+    y: number;
+    size: number;
+    w: number;
+    bold: boolean;
+    italic: boolean;
+    str: string;
+  };
+  type Line = {
+    y: number;
+    x0: number;
+    x1: number;
+    size: number;
+    text: string;
+    parts: Part[];
+    boldAll: boolean;
+    bullet: boolean;
+    heading: boolean;
+    centered: boolean;
+    rightAligned: boolean;
+  };
+  type RRun = {
+    text: string;
+    bold: boolean;
+    italic: boolean;
+    size: number;
+    tabBefore: boolean;
+  };
+
+  const BULLET_RE =
+    /^[\u2022\u25CF\u25CB\u25E6\u25AA\u25A0\u25A1\u00B7\u2023\u2043\u2013\u2014*-]\s+/;
+  const clampHP = (pt: number) => Math.min(144, Math.max(16, Math.round(pt * 2)));
+
+  /* Real bold/italic flags come from pdf.js resolved font objects — the raw
+     fontName is an opaque id (g_d0_f1) for embedded subset fonts, so string
+     matching alone misses most documents. */
+  const fontFlags = (page: any, fontName: string) => {
+    let bold = false;
+    let italic = false;
+    let name = String(fontName || "");
+    try {
+      const d = page.commonObjs?.get?.(fontName);
+      if (d) {
+        bold = !!d.bold;
+        italic = !!d.italic;
+        if (d.name) name = String(d.name);
+      }
+    } catch {
+      /* font object not resolved yet — fall back to name matching */
+    }
+    const clean = name.replace(/^[A-Z]{6}\+/, "");
+    if (!bold) bold = /bold|black|heavy/i.test(clean);
+    if (!italic) italic = /italic|oblique/i.test(clean);
+    return { bold, italic };
+  };
+
+  /* visual line: parts joined gap-aware; wide gaps (table columns) become
+     tab markers so Word keeps the column rhythm */
+  const buildLine = (parts: Part[]): Line => {
+    parts.sort((a, b) => a.x - b.x);
+    let text = "";
+    let prevEnd: number | null = null;
+    for (const p of parts) {
+      if (prevEnd !== null) {
+        const gap = p.x - prevEnd;
+        if (gap > p.size * 2.5) text += "\t";
+        else if (gap > Math.max(1, p.size * 0.12)) text += " ";
+      }
+      text += p.str;
+      prevEnd = p.x + p.w;
+    }
+    const x0 = parts[0].x;
+    const x1 = Math.max(...parts.map((p) => p.x + p.w));
+    const size = Math.max(...parts.map((p) => p.size));
+    const boldAll =
+      parts.every((p) => p.bold) && text.replace(/\s/g, "").length >= 2;
+    return {
+      y: parts[0].y,
+      x0,
+      x1,
+      size,
+      text,
+      parts,
+      boldAll,
+      bullet: BULLET_RE.test(text.trim()),
+      heading: false,
+      centered: false,
+      rightAligned: false,
+    };
+  };
+
+  const mode = (vals: number[]) => {
+    const f = new Map<number, number>();
+    for (const v of vals) f.set(v, (f.get(v) ?? 0) + 1);
+    let best = vals[0];
+    let n = 0;
+    for (const [v, c] of f) if (c > n) ((n = c), (best = v));
+    return best;
+  };
+  const median = (vals: number[]) => {
+    if (!vals.length) return 0;
+    const s = [...vals].sort((a, b) => a - b);
+    return s[Math.floor(s.length / 2)];
+  };
+
+  const metricsFor = (lines: Line[]) => {
+    const freq = new Map<number, number>();
+    for (const l of lines) {
+      const k = Math.round(l.size * 2) / 2;
+      freq.set(k, (freq.get(k) ?? 0) + l.text.length);
+    }
+    let bodySize = 11;
+    let n = -1;
+    for (const [k, c] of freq) if (c > n) ((n = c), (bodySize = k));
+    const body = lines.filter((l) => Math.abs(l.size - bodySize) <= 0.6);
+    const leftMargin = body.length ? mode(body.map((l) => Math.round(l.x0))) : Math.min(...lines.map((l) => l.x0));
+    const bodyRight = body.length ? median(body.map((l) => l.x1)) : Math.max(...lines.map((l) => l.x1));
+    const pageRight = Math.max(...lines.map((l) => l.x1));
+    return { bodySize, leftMargin, bodyRight, pageRight };
+  };
+
+  const classify = (lines: Line[], pageW: number) => {
+    const m = metricsFor(lines);
+    for (const l of lines) {
+      const leftGap = l.x0 - m.leftMargin;
+      const rightGap = m.pageRight - l.x1;
+      l.centered =
+        Math.abs(leftGap - rightGap) <= Math.max(6, l.size * 0.4) &&
+        leftGap > l.size * 0.8 &&
+        rightGap > l.size * 0.8;
+      l.rightAligned =
+        !l.centered &&
+        rightGap <= Math.max(3, l.size) &&
+        leftGap > (m.bodyRight - m.leftMargin) * 0.25;
+      l.heading =
+        (l.boldAll && l.size >= m.bodySize * 1.12) ||
+        l.size >= m.bodySize * 1.45;
+    }
+    return m;
+  };
+
+  /* lightweight two-column detection: enough lines start past the middle,
+     and almost nothing crosses the gutter */
+  const detectColumns = (lines: Line[], pageW: number): Line[][] => {
+    if (lines.length < 8) return [lines];
+    const mid = lines.filter((l) => l.x0 > pageW * 0.44 && l.x0 < pageW * 0.68);
+    if (mid.length < 4 || mid.length * 2 < lines.length) return [lines];
+    const gutterX = Math.min(...mid.map((l) => l.x0));
+    const crossing = lines.filter((l) => l.x0 < gutterX - 2 && l.x1 > gutterX + 2);
+    if (crossing.length > lines.length * 0.1) return [lines];
+    const left = lines.filter((l) => l.x0 < gutterX - 2);
+    const right = lines.filter((l) => l.x0 >= gutterX - 2);
+    if (left.length < 2 || right.length < 2) return [lines];
+    return [left, right];
+  };
+
+  const canJoin = (a: Line, b: Line, m: ReturnType<typeof metricsFor>) => {
+    if (a.heading || b.heading || a.centered || b.centered) return false;
+    if (a.rightAligned || b.rightAligned || b.bullet) return false;
+    const gap = a.y - b.y;
+    const pitch = Math.max(a.size, b.size) * 1.25;
+    if (gap > pitch * 1.75 || gap < pitch * 0.5) return false;
+    const full = a.x1 >= m.bodyRight - Math.max(2, a.size);
+    const hyph = /[-\u2010\u2011]$/.test(a.text.trimEnd());
+    const lower =
+      /^[a-z\u00DF-\u024F]/.test(b.text.trim()) && gap <= pitch * 1.45;
+    return full || hyph || lower;
+  };
+
+  const lineRuns = (line: Line): RRun[] => {
+    const runs: RRun[] = [];
+    let prevEnd: number | null = null;
+    for (const p of line.parts) {
+      let tabBefore = false;
+      if (prevEnd !== null) {
+        const gap = p.x - prevEnd;
+        if (gap > p.size * 2.5) tabBefore = true;
+        else if (gap > Math.max(1, p.size * 0.12) && runs.length)
+          runs[runs.length - 1].text += " ";
+      }
+      const last = runs[runs.length - 1];
+      if (
+        last &&
+        last.bold === p.bold &&
+        last.italic === p.italic &&
+        Math.abs(last.size - p.size) < 0.4 &&
+        !tabBefore
+      )
+        last.text += p.str;
+      else
+        runs.push({
+          text: p.str,
+          bold: p.bold,
+          italic: p.italic,
+          size: p.size,
+          tabBefore,
+        });
+      prevEnd = p.x + p.w;
+    }
+    return runs;
+  };
 
   for (let i = 0; i < entries.length; i++) {
     const bytes = await fileToBytes(entries[i].file);
     const doc = await openWithPdfjs(bytes);
     const n = doc.numPages;
     const children: any[] = [];
+    let pageProps: any = null;
 
     for (let p = 1; p <= n; p++) {
       const page = await doc.getPage(p);
       const tc = await page.getTextContent();
-      const lines: {
-        y: number;
-        items: { x: number; str: string; bold: boolean; size: number }[];
-      }[] = [];
+      try {
+        await page.getOperatorList(); // resolves fonts into commonObjs
+      } catch {
+        /* rendering not required for text extraction */
+      }
+      const pageW = page.getViewport({ scale: 1 }).width;
+      const pageH = page.getViewport({ scale: 1 }).height;
+
+      const parts: Part[] = [];
       for (const item of tc.items as any[]) {
         if (!item.str || !item.str.trim()) continue;
-        const x = item.transform[4];
-        const y = item.transform[5];
         const size = Math.hypot(item.transform[0], item.transform[1]) || 12;
-        const bold = /bold|black|heavy/i.test(String(item.fontName || ""));
-        let line = lines.find((l) => Math.abs(l.y - y) < size * 0.6);
+        const flags = fontFlags(page, String(item.fontName || ""));
+        parts.push({
+          x: item.transform[4],
+          y: item.transform[5],
+          size,
+          w: item.width || item.str.length * size * 0.5,
+          bold: flags.bold,
+          italic: flags.italic,
+          str: item.str,
+        });
+      }
+
+      const lines: Line[] = [];
+      for (const part of parts) {
+        let line = lines.find(
+          (l) =>
+            Math.abs(l.y - part.y) < part.size * 0.55 &&
+            Math.abs(l.size - part.size) < part.size * 1.5
+        );
         if (!line) {
-          line = { y, items: [] };
+          line = buildLine([part]);
           lines.push(line);
+        } else {
+          line.parts.push(part);
+          const rebuilt = buildLine(line.parts);
+          Object.assign(line, rebuilt);
         }
-        line.items.push({ x, str: item.str, bold, size });
       }
       lines.sort((a, b) => b.y - a.y);
 
-      if (p > 1) children.push(new Paragraph({ text: "" }));
-      for (const line of lines) {
-        line.items.sort((a, b) => a.x - b.x);
-        let text = "";
-        let prevEnd: number | null = null;
-        for (const it of line.items) {
-          if (prevEnd !== null) {
-            const gap = it.x - prevEnd;
-            if (gap > 1.5) text += gap > 12 ? "  " : " ";
+      if (!pageProps) {
+        const topLine = Math.max(...lines.map((l) => l.y + l.size));
+        const leftT = 1440;
+        const rightT = 1440;
+        pageProps = {
+          page: {
+            size: { width: Math.round(pageW * 20), height: Math.round(pageH * 20) },
+            margin: {
+              top: Math.min(2160, Math.max(720, Math.round((pageH - topLine) * 20))),
+              right: rightT,
+              bottom: 1440,
+              left: leftT,
+            },
+          },
+        };
+      }
+
+      if (p > 1 && children.length)
+        children.push(
+          new Paragraph({ children: [new PageBreak()], spacing: { after: 0 } })
+        );
+
+      if (lines.length) {
+        for (const group of detectColumns(lines, pageW)) {
+          const m = classify(group, pageW);
+          /* group lines into paragraphs */
+          const paras: Line[][] = [];
+          for (const line of group) {
+            const cur = paras[paras.length - 1];
+            if (
+              cur &&
+              canJoin(cur[cur.length - 1], line, m)
+            )
+              cur.push(line);
+            else paras.push([line]);
           }
-          text += it.str;
-          prevEnd = it.x + it.str.length * it.size * 0.5;
-        }
-        if (!text.trim()) continue;
-        const maxSize = Math.max(...line.items.map((s) => s.size));
-        const allBold = line.items.every((s) => s.bold);
-        if (allBold && maxSize > 13) {
-          children.push(
-            new Paragraph({
-              heading:
-                maxSize > 17 ? HeadingLevel.HEADING_1 : HeadingLevel.HEADING_2,
-              children: [new TextRun({ text, bold: true })],
-            })
-          );
-        } else {
-          children.push(
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text,
-                  size: Math.max(16, Math.round(maxSize * 2 * 0.75)),
-                  bold: allBold,
-                }),
-              ],
-            })
-          );
+
+          for (const para of paras) {
+            const first = para[0];
+            const runs: RRun[] = [];
+            for (let li = 0; li < para.length; li++) {
+              if (li > 0 && !/[-\u2010\u2011]$/.test(para[li - 1].text.trimEnd()))
+                runs.push({
+                  text: " ",
+                  bold: false,
+                  italic: false,
+                  size: Math.max(para[li - 1].size, para[li].size),
+                  tabBefore: false,
+                });
+              runs.push(...lineRuns(para[li]));
+            }
+            /* strip a bullet marker from the first run */
+            if (first.bullet && runs.length) {
+              const head = runs[0];
+              const stripped = head.text.replace(BULLET_RE, "");
+              if (stripped !== head.text) {
+                head.text = stripped;
+                if (!head.text && runs.length > 1) runs.shift();
+              }
+            }
+
+            const isBullet = first.bullet;
+            const heading = first.heading;
+            const alignment = first.centered
+              ? AlignmentType.CENTER
+              : first.rightAligned
+              ? AlignmentType.RIGHT
+              : undefined;
+
+            /* tab stops from wide gaps (reconstructed table columns) —
+               positions are relative to the paragraph's left edge */
+            const tabs: any[] = [];
+            for (const line of para) {
+              let prevEnd: number | null = null;
+              for (const pt of line.parts) {
+                if (
+                  prevEnd !== null &&
+                  pt.x - prevEnd > pt.size * 2.5 &&
+                  tabs.length < 6
+                )
+                  tabs.push({
+                    type: TabStopType.LEFT,
+                    position: Math.max(
+                      240,
+                      Math.round((pt.x - para[0].x0) * 20)
+                    ),
+                  });
+                prevEnd = pt.x + pt.w;
+              }
+            }
+
+            /* indent: paragraph starts right of the margin */
+            const minX0 = Math.min(...para.map((l) => l.x0));
+            const overhang = minX0 - m.leftMargin;
+            const indent =
+              !isBullet && overhang > first.size * 1.2
+                ? { left: Math.min(2880, Math.max(240, Math.round(overhang * 20))) }
+                : undefined;
+
+            const docRuns = runs.map((r) =>
+              Tab && r.tabBefore
+                ? new TextRun({
+                    children: [new Tab(), r.text] as any,
+                    bold: r.bold || !!heading,
+                    italics: r.italic,
+                    size: clampHP(r.size),
+                  })
+                : new TextRun({
+                    text: r.text,
+                    bold: r.bold || !!heading,
+                    italics: r.italic,
+                    size: clampHP(r.size),
+                  })
+            );
+
+            children.push(
+              new Paragraph({
+                heading: heading
+                  ? first.size >= m.bodySize * 1.7
+                    ? HeadingLevel.HEADING_1
+                    : first.size >= m.bodySize * 1.35
+                    ? HeadingLevel.HEADING_2
+                    : HeadingLevel.HEADING_3
+                  : undefined,
+                alignment,
+                bullet: isBullet ? { level: 0 } : undefined,
+                indent,
+                tabStops: tabs.length ? tabs : undefined,
+                spacing: heading
+                  ? { before: 240, after: 120 }
+                  : isBullet
+                  ? { after: 60 }
+                  : { after: 120 },
+                children: docRuns,
+              })
+            );
+          }
         }
       }
+
       cb.onStatus?.(`Extracting page ${p}/${n}`);
       cb.onFileProgress?.(entries[i].id, p / n);
       cb.onOverall?.(((i + p / n) / entries.length) * 0.92);
       await tick();
     }
 
-    const docxDoc = new Document({ sections: [{ children }] });
+    const docxDoc = new Document({
+      sections: pageProps
+        ? [{ properties: pageProps, children }]
+        : [{ children }],
+    });
     const blob = await Packer.toBlob(docxDoc);
     outFiles.push({
       name: `${entries[i].file.name.replace(/\.pdf$/i, "")}.docx`,
