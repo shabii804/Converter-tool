@@ -109,3 +109,25 @@ defineOnce(
     return { promise, resolve, reject };
   }
 );
+
+/* static Math.sumPrecise — used by @cantoo/pdf-lib's encryption path
+   (Protect PDF); shipped in ES2026-era engines only */
+declare global {
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+  interface Math {
+    sumPrecise(values: Iterable<number>): number;
+  }
+}
+
+defineOnce(
+  Math as unknown as object,
+  "sumPrecise",
+  function sumPrecise(values: Iterable<number>): number {
+    let sum = 0;
+    for (const v of values) sum += v;
+    return sum;
+  }
+);
+
+/* module marker — keeps "declare global" valid in this file */
+export {};

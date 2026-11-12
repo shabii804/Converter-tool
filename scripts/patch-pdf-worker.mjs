@@ -47,6 +47,16 @@ const SHIMS = `${MARKER}
       writable: true, configurable: true, enumerable: false,
     });
   }
+  if (!Object.prototype.hasOwnProperty.call(Math, "sumPrecise")) {
+    Object.defineProperty(Math, "sumPrecise", {
+      value: function sumPrecise(values) {
+        let sum = 0;
+        for (const v of values) sum += v;
+        return sum;
+      },
+      writable: true, configurable: true, enumerable: false,
+    });
+  }
 })();
 `;
 

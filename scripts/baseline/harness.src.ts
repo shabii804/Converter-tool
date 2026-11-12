@@ -1,7 +1,12 @@
 /**
  * Engine harness — runs the REAL src/lib/pdf-engine.ts in headless Chromium.
  * No UI involved. Fixed, deterministic specs for all 16 tools.
+ *
+ * The client compat shims load first, exactly like the app does
+ * (src/lib/compat-shims.ts via app-shell/pipeline) — pdfjs 6 needs them on
+ * engines that predate Map-upsert / Promise.withResolvers / Math.sumPrecise.
  */
+import "../../src/lib/compat-shims";
 import { runTool } from "../../src/lib/pdf-engine";
 import * as pdfjs from "pdfjs-dist";
 
