@@ -1100,10 +1100,44 @@ async function runWordToPdf(
 
   for (let i = 0; i < entries.length; i++) {
     const buf = await entries[i].file.arrayBuffer();
-    const { value: html } = await mammoth.convertToHtml({ arrayBuffer: buf });
+    /* mammoth drops direct paragraph alignment (w:jc) from its HTML output —
+       surface it by stamping synthetic style names on centered/right
+       paragraphs, which the style map turns into detectable classes */
+    const { value: html } = await mammoth.convertToHtml(
+      { arrayBuffer: buf },
+      {
+        styleMap: [
+          "p[style-name='__mzCenter'] => p.mz-center:fresh",
+          "p[style-name='__mzRight'] => p.mz-right:fresh",
+        ],
+        transformDocument: (document: any) => {
+          const mark = (el: any) => {
+            if (
+              el.type === "paragraph" &&
+              (el.alignment === "center" || el.alignment === "right") &&
+              (!el.styleId || /normal|body/i.test(String(el.styleId)))
+            ) {
+              el.styleName =
+                el.alignment === "center" ? "__mzCenter" : "__mzRight";
+              el.styleId = undefined;
+            }
+            (el.children ?? []).forEach(mark);
+          };
+          mark(document);
+          return document;
+        },
+      }
+    );
     const dom = new DOMParser().parseFromString(html, "text/html");
     const pdf = new jsPDF({ unit: "pt", format: [pageW, pageH] });
     let y = M;
+
+    const alignOf = (el: Element): "left" | "center" | "right" => {
+      const cls = el.getAttribute("class") ?? "";
+      if (cls.includes("mz-center")) return "center";
+      if (cls.includes("mz-right")) return "right";
+      return "left";
+    };
 
     /* collect inline runs with inherited bold/italic so <strong>/<em>
        survive the conversion (the old walker flattened them away) */
@@ -1140,26 +1174,44 @@ async function runWordToPdf(
       b && it ? "bolditalic" : b ? "bold" : it ? "italic" : "normal";
 
     /* rich-text flow: wraps word-by-word ACROSS style runs, so a paragraph
-       keeps its mixed bold/italic exactly like the source document */
+       keeps its mixed bold/italic exactly like the source document. Lines
+       are buffered first so centered/right paragraphs get offset. */
     const writeRuns = (
       runs: RRun[],
       size: number,
       indent: number,
-      gapAfter: number
+      gapAfter: number,
+      align: "left" | "center" | "right" = "left"
     ) => {
-      const right = pageW - M;
       const left = M + indent;
+      const avail = pageW - M - left;
       const lineH = size * 1.45;
-      let lineX = left;
-      let pending = false;
-      const wrap = () => {
-        y += lineH;
-        lineX = left;
+      type W = { text: string; w: number; bold: boolean; italic: boolean };
+      let line: W[] = [];
+      let lineW = 0;
+
+      const flush = () => {
+        while (line.length && /^\s+$/.test(line[line.length - 1].text))
+          lineW -= line.pop()!.w;
+        if (!line.length) return;
         if (y > pageH - M) {
           pdf.addPage();
           y = M;
         }
+        let x = left;
+        if (align === "center") x += Math.max(0, (avail - lineW) / 2);
+        else if (align === "right") x += Math.max(0, avail - lineW);
+        for (const wd of line) {
+          pdf.setFont("helvetica", fontFor(wd.bold, wd.italic));
+          pdf.setFontSize(size);
+          pdf.text(wd.text, x, y);
+          x += wd.w;
+        }
+        line = [];
+        lineW = 0;
+        y += lineH;
       };
+
       if (y > pageH - M) {
         pdf.addPage();
         y = M;
@@ -1173,43 +1225,44 @@ async function runWordToPdf(
           if (si > 0) {
             /* hard line break — always advance; blank segments keep the
                empty line instead of collapsing */
-            if (pending) wrap();
-            else {
-              y += lineH;
+            const had = line.length > 0;
+            flush();
+            if (!had) {
               if (y > pageH - M) {
                 pdf.addPage();
                 y = M;
               }
+              y += lineH;
             }
-            lineX = left;
-            pending = false;
           }
           for (const wd of segs[si].split(/(\s+)/)) {
             if (!wd) continue;
             if (/^\s+$/.test(wd)) {
-              if (pending) lineX += pdf.getTextWidth(" ");
+              if (line.length) {
+                const sw = pdf.getTextWidth(" ");
+                line.push({ text: " ", w: sw, bold: run.bold, italic: run.italic });
+                lineW += sw;
+              }
               continue;
             }
             const ww = pdf.getTextWidth(wd);
-            if (lineX + ww > right && pending) wrap();
-            if (ww > right - left) {
+            if (lineW + ww > avail && line.length) flush();
+            if (ww > avail) {
               /* pathological single word wider than the line: hard-break */
               for (const ch of wd) {
                 const cw = pdf.getTextWidth(ch);
-                if (lineX + cw > right) wrap();
-                pdf.text(ch, lineX, y);
-                lineX += cw;
-                pending = true;
+                if (lineW + cw > avail && line.length) flush();
+                line.push({ text: ch, w: cw, bold: run.bold, italic: run.italic });
+                lineW += cw;
               }
             } else {
-              pdf.text(wd, lineX, y);
-              lineX += ww;
-              pending = true;
+              line.push({ text: wd, w: ww, bold: run.bold, italic: run.italic });
+              lineW += ww;
             }
           }
         }
       }
-      if (pending) y += lineH;
+      flush();
       y += gapAfter;
     };
 
@@ -1234,6 +1287,87 @@ async function runWordToPdf(
       } catch {
         /* broken image — skip rather than fail the whole file */
       }
+    };
+
+    /* real ruled table: columns sized to their content, cells wrapped,
+       header row bold on a light fill — instead of pipe-joined text */
+    const renderTable = (table: Element) => {
+      const trs = Array.from(table.querySelectorAll("tr"));
+      if (!trs.length) return;
+      const size = 10;
+      const pad = 4;
+      const lineH = size * 1.35;
+      const grid: string[][] = [];
+      const rowBold: boolean[] = [];
+      for (let r = 0; r < trs.length; r++) {
+        const cells = Array.from(trs[r].querySelectorAll("th,td"));
+        grid.push(
+          cells.map((c) =>
+            (c.textContent ?? "").replace(/\s+/g, " ").trim()
+          )
+        );
+        rowBold.push(
+          trs[r].querySelector("th") !== null ||
+            (r === 0 &&
+              cells.length > 0 &&
+              cells.every((c) => c.querySelector("strong,b") !== null))
+        );
+      }
+      const nCols = Math.max(...grid.map((r) => r.length));
+      for (const r of grid) while (r.length < nCols) r.push("");
+      pdf.setFontSize(size);
+      const colW: number[] = [];
+      for (let c = 0; c < nCols; c++) {
+        let w = 0;
+        for (let r = 0; r < grid.length; r++) {
+          pdf.setFont("helvetica", rowBold[r] ? "bold" : "normal");
+          for (const word of grid[r][c].split(/\s+/))
+            if (word) w = Math.max(w, pdf.getTextWidth(word));
+        }
+        colW.push(
+          Math.min(Math.max(w + pad * 2 + 2, 42), (pageW - M * 2) * 0.6)
+        );
+      }
+      const total = colW.reduce((a, b) => a + b, 0);
+      const avail = pageW - M * 2;
+      if (total > avail)
+        for (let c = 0; c < nCols; c++) colW[c] *= avail / total;
+      pdf.setDrawColor(168);
+      pdf.setLineWidth(0.5);
+      for (let r = 0; r < grid.length; r++) {
+        pdf.setFont("helvetica", rowBold[r] ? "bold" : "normal");
+        pdf.setFontSize(size);
+        const cellLines = grid[r].map((t, c) =>
+          t
+            ? (pdf.splitTextToSize(t, Math.max(20, colW[c] - pad * 2)) as string[])
+            : []
+        );
+        const nLines = Math.max(1, ...cellLines.map((ls) => ls.length));
+        const rowH = nLines * lineH + pad * 2;
+        if (y + rowH > pageH - M) {
+          pdf.addPage();
+          y = M;
+        }
+        if (rowBold[r]) {
+          pdf.setFillColor(243, 243, 243);
+          pdf.rect(M, y, colW.reduce((a, b) => a + b, 0), rowH, "F");
+        }
+        let x = M;
+        for (let c = 0; c < nCols; c++) {
+          pdf.rect(x, y, colW[c], rowH);
+          for (let li = 0; li < cellLines[c].length; li++)
+            pdf.text(
+              cellLines[c][li],
+              x + pad,
+              y + pad + size * 0.85 + li * lineH
+            );
+          x += colW[c];
+        }
+        y += rowH;
+      }
+      pdf.setDrawColor(0);
+      pdf.setLineWidth(1);
+      y += 8;
     };
 
     const isList = (t: string) => t === "ul" || t === "ol";
@@ -1273,29 +1407,11 @@ async function runWordToPdf(
         const tag = el.tagName.toLowerCase();
         if (/^h[1-6]$/.test(tag)) {
           const size = [20, 17, 15, 13.5, 12.5, 12][parseInt(tag[1], 10) - 1];
-          writeRuns(inlineRuns(el, true, false), size, 0, 6);
+          writeRuns(inlineRuns(el, true, false), size, 0, 6, alignOf(el));
         } else if (isList(tag)) {
           walkList(el, depth);
         } else if (tag === "table") {
-          const rows = Array.from(el.querySelectorAll("tr"));
-          for (const tr of rows) {
-            const cells = Array.from(tr.querySelectorAll("th,td")).map(
-              (c) => (c.textContent ?? "").trim()
-            );
-            writeRuns(
-              [
-                {
-                  text: cells.join("    |    "),
-                  bold: tr.querySelector("th") !== null,
-                  italic: false,
-                },
-              ],
-              10,
-              0,
-              2
-            );
-          }
-          y += 6;
+          renderTable(el);
         } else if (tag === "img") {
           drawImageEl(el);
         } else if (el.querySelector("img,ul,ol,table")) {
@@ -1305,7 +1421,7 @@ async function runWordToPdf(
         } else {
           const runs = inlineRuns(el, false, false);
           if (runs.some((r) => r.text.trim()))
-            writeRuns(runs, 11, 0, 8);
+            writeRuns(runs, 11, 0, 8, alignOf(el));
         }
       }
     };
@@ -1323,7 +1439,7 @@ async function runWordToPdf(
   }
   return {
     files: outFiles,
-    note: "Text, headings, lists, images & bold/italic kept — complex layout simplified",
+    note: "Text, headings, lists, tables, alignment, images & bold/italic kept — complex layout simplified",
   };
 }
 
