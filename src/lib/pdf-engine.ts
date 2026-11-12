@@ -871,41 +871,71 @@ async function runWatermark(
     const doc = await loadWithPdfLib(bytes);
     const pages = doc.getPages();
     for (const page of pages) {
-      const { width, height } = page.getSize();
+      /* stamp on the page the viewer SHOWS: positions are computed in
+         display space (visible box incl. non-zero origins, honoring
+         /Rotate) and mapped to user space, with the text counter-rotated
+         so it sits at the intended visual angle. */
+      const base = page.getCropBox();
+      const W = base.width;
+      const H = base.height;
+      const rot = ((page.getRotation().angle % 360) + 360) % 360;
+      const swap = rot === 90 || rot === 270;
+      const Dw = swap ? H : W;
+      const Dh = swap ? W : H;
       const tw = font.widthOfTextAtSize(opts.text, opts.fontSize);
-      const draw = (x: number, y: number, rot: number) => {
+      const draw = (dx: number, dyBottom: number, visualAngle: number) => {
+        const dyTop = Dh - dyBottom;
+        let xu: number;
+        let yu: number;
+        switch (rot) {
+          case 90:
+            xu = dyTop;
+            yu = dx;
+            break;
+          case 180:
+            xu = W - dx;
+            yu = H - dyTop;
+            break;
+          case 270:
+            xu = W - dyTop;
+            yu = H - dx;
+            break;
+          default:
+            xu = dx;
+            yu = H - dyTop;
+        }
         page.drawText(opts.text, {
-          x,
-          y,
+          x: base.x + xu,
+          y: base.y + yu,
           size: opts.fontSize,
           font,
           color: rgb(r, g, b),
           opacity: opts.opacity,
-          rotate: degrees(rot),
+          rotate: degrees((visualAngle + rot) % 360),
         });
       };
       switch (opts.position) {
         case "center":
-          draw((width - tw) / 2, height / 2 - opts.fontSize / 2, 0);
+          draw((Dw - tw) / 2, Dh / 2 - opts.fontSize / 2, 0);
           break;
         case "diagonal":
-          draw((width - tw) / 2 - width * 0.1, height * 0.35, opts.rotation);
+          draw((Dw - tw) / 2 - Dw * 0.1, Dh * 0.35, opts.rotation);
           break;
         case "tile": {
-          const stepX = Math.max(40, tw + width * 0.08);
+          const stepX = Math.max(40, tw + Dw * 0.08);
           const stepY = Math.max(30, opts.fontSize * 5);
-          for (let y = 0; y < height + stepY; y += stepY) {
-            for (let x = -tw; x < width + stepX; x += stepX) {
-              draw(x, y, opts.rotation);
+          for (let dy = 0; dy < Dh + stepY; dy += stepY) {
+            for (let dx = -tw; dx < Dw + stepX; dx += stepX) {
+              draw(dx, dy, opts.rotation);
             }
           }
           break;
         }
         case "footer":
-          draw((width - tw) / 2, opts.fontSize * 1.2, 0);
+          draw((Dw - tw) / 2, opts.fontSize * 1.2, 0);
           break;
         case "header":
-          draw((width - tw) / 2, height - opts.fontSize * 2, 0);
+          draw((Dw - tw) / 2, Dh - opts.fontSize * 2, 0);
           break;
       }
     }
