@@ -59,7 +59,10 @@ await new Promise((r) => server.listen(0, "127.0.0.1", r));
 const port = server.address().port;
 console.log(`harness served at http://127.0.0.1:${port}`);
 
-const browser = await chromium.launch();
+const browser = await chromium.launch({
+  executablePath:
+    process.env.PLAYWRIGHT_CHROMIUM_PATH || undefined,
+});
 const page = await browser.newPage();
 const pageErrors = [];
 page.on("pageerror", (e) => pageErrors.push(String(e?.message ?? e)));
