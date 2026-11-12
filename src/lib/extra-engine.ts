@@ -1434,6 +1434,92 @@ async function runEditMetadata(
 }
 
 /* ================================================================
+   10) QR CODE → PDF
+   ================================================================ */
+
+export interface QrToPdfOptions {
+  text: string;
+  ec: "L" | "M" | "Q" | "H";
+  /** PNG render resolution in px (crispness when printed) */
+  pixelSize: number;
+  pageSize: "a4" | "letter";
+  caption: string;
+}
+
+async function runQrToPdf(
+  _entries: { id: string; file: File }[],
+  opts: QrToPdfOptions,
+  cb: RunCallbacks
+): Promise<EngineResult> {
+  const content = opts.text?.trim() ?? "";
+  if (!content)
+    throw new Error("Type the link or text the QR code should contain");
+
+  const QRCode = (await import("qrcode")).default;
+  const size = Math.max(256, Math.min(2048, opts.pixelSize || 768));
+  const ec = opts.ec ?? "M";
+  let dataUrl: string;
+  try {
+    dataUrl = await QRCode.toDataURL(content, {
+      errorCorrectionLevel: ec,
+      width: size,
+      margin: 2,
+      color: { dark: "#000000ff", light: "#ffffffff" },
+    });
+  } catch {
+    throw new Error(
+      "This content is too long to fit in a QR code — shorten it or lower the error correction level"
+    );
+  }
+
+  const { PDFDocument, StandardFonts, rgb } = await getPdfLib();
+  const doc = await PDFDocument.create();
+  const W = opts.pageSize === "letter" ? 612 : 595.28;
+  const H = opts.pageSize === "letter" ? 792 : 841.89;
+  const page = doc.addPage([W, H]);
+
+  const img = await doc.embedPng(dataUrlToBytes(dataUrl));
+
+  const caption = (opts.caption ?? "").trim();
+  if (caption && !isWinAnsiSafe(caption)) {
+    throw new Error(
+      "The caption contains characters the standard PDF fonts can't encode — please stick to basic Latin for the caption"
+    );
+  }
+
+  const draw = Math.min(W, H) * 0.55;
+  const capH = caption ? 40 : 0;
+  const top = (H + draw + capH) / 2;
+  page.drawImage(img, {
+    x: (W - draw) / 2,
+    y: top - draw,
+    width: draw,
+    height: draw,
+  });
+
+  if (caption) {
+    const font = await doc.embedFont(StandardFonts.Helvetica);
+    const cSize = 12;
+    const text = caption.length > 80 ? caption.slice(0, 77) + "..." : caption;
+    const tw = font.widthOfTextAtSize(text, cSize);
+    page.drawText(text, {
+      x: (W - tw) / 2,
+      y: top - draw - 26,
+      size: cSize,
+      font,
+      color: rgb(0.09, 0.11, 0.16),
+    });
+  }
+
+  const blob = pdfBlob(await doc.save({ useObjectStreams: true }));
+  cb.onOverall?.(1);
+  return {
+    files: [{ name: "qr-code.pdf", blob, size: blob.size, kind: "PDF" }],
+    note: `QR rendered at ${size}px · error correction ${ec}`,
+  };
+}
+
+/* ================================================================
    DISPATCHER
    ================================================================ */
 
@@ -1451,6 +1537,7 @@ export const EXTRA_TOOL_IDS = [
   "redact-pdf",
   "flatten",
   "edit-metadata",
+  "qr-to-pdf",
 ] as const;
 
 export type ExtraToolId = (typeof EXTRA_TOOL_IDS)[number];
@@ -1492,6 +1579,8 @@ export async function runExtraTool(
       return runFlatten(entries, opts, cb);
     case "edit-metadata":
       return runEditMetadata(entries, opts, cb);
+    case "qr-to-pdf":
+      return runQrToPdf(entries, opts, cb);
     default:
       throw new Error("Unknown tool");
   }

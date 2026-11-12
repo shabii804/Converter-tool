@@ -19,6 +19,7 @@ import { RelatedTools } from "./related-tools";
 import { ShareButton } from "./share-button";
 import { formatBytes } from "@/lib/format";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
@@ -126,6 +127,12 @@ interface Options {
   mdCreator: string;
   mdProducer: string;
   mdClearEmpty: boolean;
+  // qr-to-pdf
+  qrText: string;
+  qrEc: "L" | "M" | "Q" | "H";
+  qrSize: number;
+  qrPageSize: "a4" | "letter";
+  qrCaption: string;
 }
 
 const defaultOptions = (): Options => ({
@@ -189,6 +196,11 @@ const defaultOptions = (): Options => ({
   mdCreator: "",
   mdProducer: "",
   mdClearEmpty: false,
+  qrText: "",
+  qrEc: "M",
+  qrSize: 768,
+  qrPageSize: "a4",
+  qrCaption: "",
 });
 
 /** Friendly large-file threshold (honest copy, no fake limits). */
@@ -263,6 +275,7 @@ export function Workspace({
     if (tool.id === "sign-pdf" && opts.editorCount === 0) return false;
     if (tool.id === "redact-pdf" && opts.editorCount === 0) return false;
     if (tool.id === "text-to-pdf" && !opts.ttfText.trim()) return false;
+    if (tool.id === "qr-to-pdf" && !opts.qrText.trim()) return false;
     if (tool.id === "edit-metadata") {
       const anyField = [
         opts.mdTitle,
@@ -327,11 +340,23 @@ export function Workspace({
             <Card className="p-6">
               <div className="flex flex-col items-center gap-3 py-6 text-center">
                 <IconTile icon={tool.icon} category={tool.category} size="lg" />
-                <p className="text-sm font-bold">Type or paste your text</p>
-                <p className="max-w-64 text-[13px] leading-relaxed text-fg-muted">
-                  Use the options panel — your text becomes a paginated PDF right
-                  here on this device. Nothing is uploaded.
-                </p>
+                {tool.id === "qr-to-pdf" ? (
+                  <>
+                    <p className="text-sm font-bold">Type a link or text</p>
+                    <p className="max-w-64 text-[13px] leading-relaxed text-fg-muted">
+                      Use the options panel — your QR code is generated right
+                      here on this device. Nothing is uploaded.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-bold">Type or paste your text</p>
+                    <p className="max-w-64 text-[13px] leading-relaxed text-fg-muted">
+                      Use the options panel — your text becomes a paginated PDF right
+                      here on this device. Nothing is uploaded.
+                    </p>
+                  </>
+                )}
               </div>
               <div className="mt-2 flex items-center gap-2.5 rounded-control border border-success/25 bg-success/[0.07] px-3.5 py-3">
                 <Eye className="size-4 shrink-0 text-success" />
@@ -615,6 +640,14 @@ function buildOptions(
         producer: opts.mdProducer,
         clearEmpty: opts.mdClearEmpty,
       };
+    case "qr-to-pdf":
+      return {
+        text: opts.qrText,
+        ec: opts.qrEc,
+        pixelSize: opts.qrSize,
+        pageSize: opts.qrPageSize,
+        caption: opts.qrCaption,
+      };
     default:
       return {};
   }
@@ -646,6 +679,8 @@ function hint(toolId: string, opts: Options, files: StoreFile[]): string {
     return "Draw at least one redaction box over the text you want removed";
   if (toolId === "text-to-pdf" && !opts.ttfText.trim())
     return "Type or paste some text first";
+  if (toolId === "qr-to-pdf" && !opts.qrText.trim())
+    return "Type the link or text the QR code should contain";
   if (toolId === "edit-metadata") {
     const anyField = [
       opts.mdTitle,
@@ -1492,6 +1527,9 @@ function OptionsPanel({
     case "edit-metadata":
       return <MetadataOptions opts={opts} set={set} files={files} />;
 
+    case "qr-to-pdf":
+      return <QrOptions opts={opts} set={set} />;
+
     default:
       return null;
   }
@@ -1839,6 +1877,146 @@ function MetadataOptions({
         <Switch
           checked={opts.mdClearEmpty}
           onCheckedChange={(v) => set("mdClearEmpty", v)}
+        />
+      </div>
+    </div>
+  );
+}
+
+/* ---------- QR code generator with live preview ---------- */
+
+function QrOptions({
+  opts,
+  set,
+}: {
+  opts: Options;
+  set: <K extends keyof Options>(k: K, v: Options[K]) => void;
+}) {
+  const [preview, setPreview] = useState<string | null>(null);
+  const [tooLong, setTooLong] = useState(false);
+
+  useEffect(() => {
+    const text = opts.qrText.trim();
+    if (!text) {
+      setPreview(null);
+      setTooLong(false);
+      return;
+    }
+    let alive = true;
+    import("qrcode")
+      .then((m) =>
+        m.default.toDataURL(text, {
+          errorCorrectionLevel: opts.qrEc,
+          width: 256,
+          margin: 2,
+        })
+      )
+      .then((url) => {
+        if (!alive) return;
+        setPreview(url);
+        setTooLong(false);
+      })
+      .catch(() => {
+        if (alive) {
+          setPreview(null);
+          setTooLong(true);
+        }
+      });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [opts.qrText, opts.qrEc]);
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <Label className="mb-2 block text-[13px] font-medium">
+          Content — link, text, anything
+        </Label>
+        <Textarea
+          rows={3}
+          value={opts.qrText}
+          onChange={(e) => set("qrText", e.target.value)}
+          placeholder="https://example.com"
+        />
+      </div>
+
+      {tooLong && (
+        <p className="rounded-control border border-warning/30 bg-warning/10 p-3.5 text-[13px] text-fg-muted">
+          This content is too long to fit in a QR code at the selected error
+          correction level — shorten it or pick a lower level.
+        </p>
+      )}
+
+      {preview && (
+        <div className="flex justify-center">
+          <div className="rounded-card border border-border bg-white p-3 shadow-sm">
+            <img src={preview} alt="QR code preview" className="block size-40" />
+          </div>
+        </div>
+      )}
+
+      <TwoCol>
+        <div>
+          <Label className="mb-2 block text-[13px] font-medium">
+            Error correction
+          </Label>
+          <Select
+            value={opts.qrEc}
+            onValueChange={(v) => set("qrEc", v as Options["qrEc"])}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="L">Low · holds the most content</SelectItem>
+              <SelectItem value="M">Medium · recommended</SelectItem>
+              <SelectItem value="Q">Quartile · damage-tolerant</SelectItem>
+              <SelectItem value="H">High · best for print</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label className="mb-2 block text-[13px] font-medium">Page size</Label>
+          <Select
+            value={opts.qrPageSize}
+            onValueChange={(v) => set("qrPageSize", v as Options["qrPageSize"])}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="a4">A4</SelectItem>
+              <SelectItem value="letter">US Letter</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </TwoCol>
+
+      <div>
+        <Label className="mb-2 block text-[13px] font-medium">
+          Render sharpness · {opts.qrSize}px
+        </Label>
+        <SegButtons
+          value={String(opts.qrSize)}
+          onChange={(v) => set("qrSize", Number(v))}
+          options={[
+            { v: "512", label: "512px · screen" },
+            { v: "768", label: "768px · print" },
+            { v: "1536", label: "1536px · max" },
+          ]}
+        />
+      </div>
+
+      <div>
+        <Label className="mb-2 block text-[13px] font-medium">
+          Caption (optional)
+        </Label>
+        <Input
+          value={opts.qrCaption}
+          onChange={(e) => set("qrCaption", e.target.value)}
+          placeholder="Printed under the code — e.g. a label"
         />
       </div>
     </div>

@@ -29,6 +29,7 @@ import {
   EyeOff,
   Layers,
   FileCog,
+  QrCode,
 } from "lucide-react";
 
 export type ToolCategory = "core" | "convert" | "edit" | "security";
@@ -482,6 +483,21 @@ export const TOOLS: ToolDef[] = [
     minFiles: 1,
     maxFiles: 10,
     input: "pdf",
+  },
+  {
+    id: "qr-to-pdf",
+    name: "QR Code to PDF",
+    tagline: "Scannable code, print-ready",
+    description:
+      "Turn a link or any text into a crisp, print-ready QR code as a PDF — generated entirely on your device.",
+    keywords: "qr code barcode link url generate create print wifi vcard",
+    badge: "New",
+    category: "convert",
+    icon: QrCode,
+    accept: "",
+    minFiles: 0,
+    maxFiles: 0,
+    input: "none",
   },
 ];
 
