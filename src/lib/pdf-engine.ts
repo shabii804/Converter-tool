@@ -1015,10 +1015,46 @@ async function runCrop(
     const bytes = await fileToBytes(entries[i].file);
     const doc = await loadWithPdfLib(bytes);
     for (const page of doc.getPages()) {
-      const { width, height } = page.getSize();
-      const newW = width * (1 - rr - l);
-      const newH = height * (1 - t - b);
-      page.setCropBox(width * l, height * b, newW, newH);
+      /* crop against what the viewer actually shows: the current crop box
+         (falls back to the media box), not the raw media box — and respect
+         a non-zero box origin. */
+      const base = page.getCropBox();
+      const W = base.width;
+      const H = base.height;
+      const rot = ((page.getRotation().angle % 360) + 360) % 360;
+      /* map the four visual edges of the DISPLAYED page to user-space:
+         with /Rotate 90 the displayed top edge is the user-space left
+         edge, etc. (0: l/b, 90: t/l, 180: r/b, 270: b/r) */
+      let x0: number;
+      let y0: number;
+      let w: number;
+      let h: number;
+      switch (rot) {
+        case 90:
+          x0 = base.x + t * W;
+          y0 = base.y + l * H;
+          w = (1 - b - t) * W;
+          h = (1 - rr - l) * H;
+          break;
+        case 180:
+          x0 = base.x + rr * W;
+          y0 = base.y + b * H;
+          w = (1 - l - rr) * W;
+          h = (1 - t - b) * H;
+          break;
+        case 270:
+          x0 = base.x + b * W;
+          y0 = base.y + rr * H;
+          w = (1 - t - b) * W;
+          h = (1 - l - rr) * H;
+          break;
+        default:
+          x0 = base.x + l * W;
+          y0 = base.y + b * H;
+          w = (1 - l - rr) * W;
+          h = (1 - t - b) * H;
+      }
+      page.setCropBox(x0, y0, Math.max(1, w), Math.max(1, h));
     }
     const blob = new Blob([await doc.save()], { type: "application/pdf" });
     outFiles.push({
