@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { useStore } from "@/lib/store";
@@ -241,6 +242,21 @@ export function Hero() {
               </div>
             </motion.div>
           )}
+        </div>
+
+        {/* brand artwork — premium 3D visual under the launcher */}
+        <div className="relative mx-auto mt-8 max-w-4xl sm:mt-10">
+          <div className="relative aspect-[21/9] overflow-hidden rounded-card border border-border bg-surface-2 shadow-lg">
+            <Image
+              src="/hero-art.png"
+              alt=""
+              aria-hidden="true"
+              width={1344}
+              height={768}
+              sizes="(min-width: 896px) 896px, calc(100vw - 32px)"
+              className="h-full w-full object-cover"
+            />
+          </div>
         </div>
       </div>
     </section>
