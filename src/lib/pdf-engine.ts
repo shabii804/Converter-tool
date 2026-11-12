@@ -755,6 +755,8 @@ async function runWordToPdf(
   const pageH = opts.pageSize === "a4" ? 841.89 : 792;
   const M = 56;
 
+  type RRun = { text: string; bold: boolean; italic: boolean };
+
   for (let i = 0; i < entries.length; i++) {
     const buf = await entries[i].file.arrayBuffer();
     const { value: html } = await mammoth.convertToHtml({ arrayBuffer: buf });
@@ -762,59 +764,211 @@ async function runWordToPdf(
     const pdf = new jsPDF({ unit: "pt", format: [pageW, pageH] });
     let y = M;
 
-    const writeBlock = (
-      text: string,
-      size: number,
+    /* collect inline runs with inherited bold/italic so <strong>/<em>
+       survive the conversion (the old walker flattened them away) */
+    const inlineRuns = (
+      el: Node,
       bold: boolean,
+      italic: boolean
+    ): RRun[] => {
+      const out: RRun[] = [];
+      const push = (t: string, b: boolean, it: boolean) => {
+        if (!t) return;
+        const last = out[out.length - 1];
+        if (last && last.bold === b && last.italic === it) last.text += t;
+        else out.push({ text: t, bold: b, italic: it });
+      };
+      el.childNodes.forEach((n) => {
+        if (n.nodeType === 3) {
+          push(n.textContent ?? "", bold, italic);
+        } else if (n.nodeType === 1) {
+          const tag = (n as Element).tagName.toLowerCase();
+          if (tag === "br") {
+            push("\n", bold, italic);
+            return;
+          }
+          const nb = bold || tag === "strong" || tag === "b";
+          const ni = italic || tag === "em" || tag === "i";
+          inlineRuns(n, nb, ni).forEach((r) => push(r.text, r.bold, r.italic));
+        }
+      });
+      return out;
+    };
+
+    const fontFor = (b: boolean, it: boolean) =>
+      b && it ? "bolditalic" : b ? "bold" : it ? "italic" : "normal";
+
+    /* rich-text flow: wraps word-by-word ACROSS style runs, so a paragraph
+       keeps its mixed bold/italic exactly like the source document */
+    const writeRuns = (
+      runs: RRun[],
+      size: number,
+      indent: number,
       gapAfter: number
     ) => {
-      const clean = text.replace(/\s+/g, " ").trim();
-      if (!clean) return;
-      pdf.setFont("helvetica", bold ? "bold" : "normal");
-      pdf.setFontSize(size);
-      const lines = pdf.splitTextToSize(clean, pageW - M * 2) as string[];
-      for (const ln of lines) {
+      const right = pageW - M;
+      const left = M + indent;
+      const lineH = size * 1.45;
+      let lineX = left;
+      let pending = false;
+      const wrap = () => {
+        y += lineH;
+        lineX = left;
         if (y > pageH - M) {
           pdf.addPage();
           y = M;
         }
-        pdf.text(ln, M, y);
-        y += size * 1.4;
+      };
+      if (y > pageH - M) {
+        pdf.addPage();
+        y = M;
       }
+      for (const run of runs) {
+        if (!run.text) continue;
+        pdf.setFont("helvetica", fontFor(run.bold, run.italic));
+        pdf.setFontSize(size);
+        const segs = run.text.split("\n");
+        for (let si = 0; si < segs.length; si++) {
+          if (si > 0) {
+            /* hard line break — always advance; blank segments keep the
+               empty line instead of collapsing */
+            if (pending) wrap();
+            else {
+              y += lineH;
+              if (y > pageH - M) {
+                pdf.addPage();
+                y = M;
+              }
+            }
+            lineX = left;
+            pending = false;
+          }
+          for (const wd of segs[si].split(/(\s+)/)) {
+            if (!wd) continue;
+            if (/^\s+$/.test(wd)) {
+              if (pending) lineX += pdf.getTextWidth(" ");
+              continue;
+            }
+            const ww = pdf.getTextWidth(wd);
+            if (lineX + ww > right && pending) wrap();
+            if (ww > right - left) {
+              /* pathological single word wider than the line: hard-break */
+              for (const ch of wd) {
+                const cw = pdf.getTextWidth(ch);
+                if (lineX + cw > right) wrap();
+                pdf.text(ch, lineX, y);
+                lineX += cw;
+                pending = true;
+              }
+            } else {
+              pdf.text(wd, lineX, y);
+              lineX += ww;
+              pending = true;
+            }
+          }
+        }
+      }
+      if (pending) y += lineH;
       y += gapAfter;
     };
 
-    const walk = (node: Element) => {
+    /* embed mammoth's inlined data-URI images, scaled to the text column */
+    const drawImageEl = (el: Element) => {
+      const src = el.getAttribute("src") ?? "";
+      const m = src.match(/^data:image\/(png|jpe?g);base64,([\s\S]+)$/);
+      if (!m) return; // unsupported source — skipped honestly
+      try {
+        const bin = atob(m[2]);
+        const raw = new Uint8Array(bin.length);
+        for (let k = 0; k < bin.length; k++) raw[k] = bin.charCodeAt(k);
+        const props = pdf.getImageProperties(raw);
+        const w = Math.min(pageW - M * 2, props.width);
+        const h = (w / props.width) * props.height;
+        if (y + h > pageH - M) {
+          pdf.addPage();
+          y = M;
+        }
+        pdf.addImage(raw, m[1] === "png" ? "PNG" : "JPEG", M, y, w, h);
+        y += h + 10;
+      } catch {
+        /* broken image — skip rather than fail the whole file */
+      }
+    };
+
+    const isList = (t: string) => t === "ul" || t === "ol";
+
+    const walkList = (list: Element, depth: number) => {
+      const tag = list.tagName.toLowerCase();
+      const items = Array.from(list.children).filter(
+        (c) => c.tagName.toLowerCase() === "li"
+      );
+      let idx = 0;
+      for (const li of items) {
+        idx++;
+        const runs: RRun[] = [
+          { text: tag === "ul" ? "•  " : `${idx}.  `, bold: false, italic: false },
+        ];
+        for (const n of Array.from(li.childNodes)) {
+          if (n.nodeType === 3) {
+            const t = n.textContent ?? "";
+            if (t) runs.push({ text: t, bold: false, italic: false });
+          } else if (n.nodeType === 1) {
+            const t = (n as Element).tagName.toLowerCase();
+            if (isList(t) || t === "img") continue; // handled after the text
+            inlineRuns(n, false, false).forEach((r) => runs.push(r));
+          }
+        }
+        writeRuns(runs, 11, depth * 16 + 8, 2);
+        for (const sub of Array.from(li.children)) {
+          const t = sub.tagName.toLowerCase();
+          if (isList(t)) walkList(sub, depth + 1);
+          else if (t === "img") drawImageEl(sub);
+        }
+      }
+    };
+
+    const walk = (node: Element, depth: number) => {
       for (const el of Array.from(node.children)) {
         const tag = el.tagName.toLowerCase();
-        const text = el.textContent ?? "";
         if (/^h[1-6]$/.test(tag)) {
           const size = [20, 17, 15, 13.5, 12.5, 12][parseInt(tag[1], 10) - 1];
-          writeBlock(text, size, true, 6);
-        } else if (tag === "li") {
-          writeBlock(`•  ${text}`, 11, false, 2);
+          writeRuns(inlineRuns(el, true, false), size, 0, 6);
+        } else if (isList(tag)) {
+          walkList(el, depth);
         } else if (tag === "table") {
           const rows = Array.from(el.querySelectorAll("tr"));
           for (const tr of rows) {
             const cells = Array.from(tr.querySelectorAll("th,td")).map(
               (c) => (c.textContent ?? "").trim()
             );
-            writeBlock(
-              cells.join("    |    "),
+            writeRuns(
+              [
+                {
+                  text: cells.join("    |    "),
+                  bold: tr.querySelector("th") !== null,
+                  italic: false,
+                },
+              ],
               10,
-              tr.querySelector("th") !== null,
+              0,
               2
             );
           }
           y += 6;
-        } else if (el.children.length) {
-          walk(el);
+        } else if (tag === "img") {
+          drawImageEl(el);
+        } else if (el.querySelector("img,ul,ol,table")) {
+          /* mixed container — walk in document order so images/lists land
+             between the right paragraphs */
+          walk(el, depth);
         } else {
-          writeBlock(text, 11, false, 8);
+          const runs = inlineRuns(el, false, false);
+          if (runs.some((r) => r.text.trim()))
+            writeRuns(runs, 11, 0, 8);
         }
       }
     };
-    walk(dom.body);
+    walk(dom.body, 0);
 
     const blob = pdf.output("blob");
     outFiles.push({
@@ -828,7 +982,7 @@ async function runWordToPdf(
   }
   return {
     files: outFiles,
-    note: "Text & structure kept — complex layout simplified",
+    note: "Text, headings, lists, images & bold/italic kept — complex layout simplified",
   };
 }
 
