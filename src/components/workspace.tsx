@@ -237,6 +237,7 @@ export function Workspace({
       if (opts.splitMode === "extract" && opts.splitSelected.size === 0)
         return false;
     }
+    if (tool.id === "organize" && opts.order.length === 0) return false;
     if (tool.id === "edit-pdf" && opts.editorCount === 0) return false;
     if (tool.id === "sign-pdf" && opts.editorCount === 0) return false;
     if (tool.id === "redact-pdf" && opts.editorCount === 0) return false;
@@ -591,6 +592,8 @@ function hint(toolId: string, opts: Options, files: StoreFile[]): string {
     if (opts.splitMode === "extract" && opts.splitSelected.size === 0)
       return "Select at least one page below";
   }
+  if (toolId === "organize" && opts.order.length === 0)
+    return "Loading page previews — Run unlocks when they are ready";
   if (toolId === "edit-pdf" && opts.editorCount === 0)
     return "Add at least one annotation — text, highlight, shape, drawing or image";
   if (toolId === "sign-pdf" && opts.editorCount === 0)
