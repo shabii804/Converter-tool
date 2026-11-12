@@ -9,10 +9,12 @@ import { executeRun } from "@/lib/pipeline";
 import { useCopy } from "@/lib/i18n-hooks";
 import { Button } from "@/components/kit/button";
 import { Dropzone } from "@/components/kit/dropzone";
+import { IconTile } from "@/components/kit/icon-tile";
 import { MeshBackdrop } from "@/components/kit/mesh-backdrop";
 import {
   X,
   ArrowRight,
+  ArrowDown,
   Sparkles,
   ShieldCheck,
   WifiOff,
@@ -29,6 +31,9 @@ export function Hero() {
   const pushRecent = useStore((s) => s.pushRecent);
   const reduce = useReducedMotion();
   const t = useCopy();
+
+  // quick-launch cluster shown right inside the hero
+  const POPULAR_TOOLS = ["merge", "split", "compress", "pdf-to-jpg", "jpg-to-pdf", "rotate"] as const;
 
   const onFiles = useCallback(
     (list: File[]) => {
@@ -115,6 +120,45 @@ export function Hero() {
                 {c.label}
               </span>
             ))}
+          </div>
+
+          {/* popular tools — launch straight from the hero; 2-col grid on phones */}
+          <div className="mt-6">
+            <p className="mb-2.5 text-center text-[11px] font-bold uppercase tracking-[0.14em] text-fg-faint">
+              {t.hero.popularTools}
+            </p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-2.5 lg:grid-cols-6">
+              {POPULAR_TOOLS.map((id) => {
+                const tool = toolById(id);
+                if (!tool) return null;
+                return (
+                  <button
+                    key={id}
+                    onClick={() => nav(id)}
+                    className="group flex min-h-[76px] flex-col items-center justify-center gap-2 rounded-card border border-border bg-surface-2/80 p-3 text-center shadow-xs outline-none backdrop-blur transition-[border-color,box-shadow,translate] duration-200 hover:-translate-y-0.5 hover:border-border-strong hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <IconTile
+                      icon={tool.icon}
+                      category={tool.category}
+                      size="sm"
+                      className="transition-transform duration-200 group-hover:scale-110"
+                    />
+                    <span className="text-xs font-semibold leading-tight text-fg-muted transition-colors group-hover:text-foreground">
+                      {tool.name}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-2.5 text-center">
+              <a
+                href="#tools"
+                className="inline-flex min-h-11 items-center gap-1 text-[13px] font-semibold text-primary outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {t.hero.viewAll}
+                <ArrowDown className="size-3.5" aria-hidden="true" />
+              </a>
+            </p>
           </div>
 
           {/* selected files chips */}
