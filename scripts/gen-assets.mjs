@@ -213,7 +213,9 @@ await makeIcon(512, "icon-maskable-512.png", { maskable: true });
 await makeIcon(180, "apple-touch-icon.png");
 await makeFavicon();
 
-const browser = await chromium.launch();
+const browser = await chromium.launch({
+  executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH || undefined,
+});
 if (process.env.SKIP_OG !== "1") {
   const ctx = await browser.newContext({ viewport: { width: 1200, height: 630 } });
   const page = await ctx.newPage();
