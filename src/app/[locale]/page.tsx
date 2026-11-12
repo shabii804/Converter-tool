@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { dictionaries, isLocale, type Lang } from "@/lib/i18n";
 import { canonicalUrl, localeAlternates, softwareAppLd, SITE_URL } from "@/lib/seo";
+import { TOOLS } from "@/lib/tools";
 import { HomeClient } from "./home-client";
 
 export function generateStaticParams() {
@@ -63,7 +64,7 @@ export default async function LocaleHome({
     softwareAppLd({
       name: "SwiftPDF",
       description:
-        "Fast, private PDF tools that run entirely in your browser — 27 tools, no uploads, no sign-up, free.",
+        `Fast, private PDF tools that run entirely in your browser — ${TOOLS.length} tools, no uploads, no sign-up, free.`,
       url: SITE_URL,
       appType: "SoftwareApplication",
     }),

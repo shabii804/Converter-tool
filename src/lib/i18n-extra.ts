@@ -15,7 +15,7 @@ const pt: Copy = {
   mega: {
     aria: "Todas as ferramentas, por categoria",
     mobileTitle: "Todas as ferramentas",
-    mobileDesc: "27 ferramentas · por categoria",
+    mobileDesc: "32 ferramentas · por categoria",
   },
   lang: { label: "Idioma" },
   cats: { all: "Todas", core: "Essenciais", convert: "Converter", edit: "Editar", security: "Segurança" },
@@ -63,7 +63,7 @@ const pt: Copy = {
       },
       {
         t: "Escolha uma ferramenta",
-        d: "São 27 ferramentas — ou aceite a que o SwiftPDF sugerir para os arquivos que você soltou.",
+        d: "São 32 ferramentas — ou aceite a que o SwiftPDF sugerir para os arquivos que você soltou.",
       },
       {
         t: "Baixe o resultado",
@@ -171,7 +171,7 @@ const hi: Copy = {
   mega: {
     aria: "सभी टूल्स, श्रेणी के अनुसार",
     mobileTitle: "सभी टूल्स",
-    mobileDesc: "27 टूल्स · श्रेणी के अनुसार",
+    mobileDesc: "32 टूल्स · श्रेणी के अनुसार",
   },
   lang: { label: "भाषा" },
   cats: { all: "सभी", core: "मूलभूत", convert: "कन्वर्ट", edit: "संपादन", security: "सुरक्षा" },
@@ -219,7 +219,7 @@ const hi: Copy = {
       },
       {
         t: "टूल चुनें",
-        d: "27 टूल्स में से चुनें — या SwiftPDF जो टूल आपकी फ़ाइलों के लिए सुझाए, उसे स्वीकार करें।",
+        d: "32 टूल्स में से चुनें — या SwiftPDF जो टूल आपकी फ़ाइलों के लिए सुझाए, उसे स्वीकार करें।",
       },
       {
         t: "रिज़ल्ट डाउनलोड करें",
@@ -327,7 +327,7 @@ const ur: Copy = {
   mega: {
     aria: "تمام ٹولز، زمرہ وار",
     mobileTitle: "تمام ٹولز",
-    mobileDesc: "27 ٹولز · زمرہ وار",
+    mobileDesc: "32 ٹولز · زمرہ وار",
   },
   lang: { label: "زبان" },
   cats: { all: "سب", core: "بنیادی", convert: "تبدیلی", edit: "ترمیم", security: "سیکیورٹی" },
@@ -375,7 +375,7 @@ const ur: Copy = {
       },
       {
         t: "ٹول منتخب کریں",
-        d: "27 ٹولز میں سے چنیں — یا SwiftPDF جو ٹول آپ کی فائلوں کے لیے تجویز کرے، وہی قبول کریں۔",
+        d: "32 ٹولز میں سے چنیں — یا SwiftPDF جو ٹول آپ کی فائلوں کے لیے تجویز کرے، وہی قبول کریں۔",
       },
       {
         t: "نتیجہ ڈاؤن لوڈ کریں",
@@ -483,7 +483,7 @@ const ar: Copy = {
   mega: {
     aria: "كل الأدوات، بحسب الفئة",
     mobileTitle: "كل الأدوات",
-    mobileDesc: "27 أداة · بحسب الفئة",
+    mobileDesc: "32 أداة · بحسب الفئة",
   },
   lang: { label: "اللغة" },
   cats: { all: "الكل", core: "أساسية", convert: "تحويل", edit: "تحرير", security: "الأمان" },
@@ -531,7 +531,7 @@ const ar: Copy = {
       },
       {
         t: "اختر أداة",
-        d: "27 أداة بينها اختر — أو اقبل الأداة التي يقترحها SwiftPDF للملفات التي أفلتها.",
+        d: "32 أداة بينها اختر — أو اقبل الأداة التي يقترحها SwiftPDF للملفات التي أفلتها.",
       },
       {
         t: "نزّل النتيجة",

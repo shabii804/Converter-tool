@@ -48,7 +48,7 @@ const en = {
   mega: {
     aria: "All tools, grouped by category",
     mobileTitle: "All tools",
-    mobileDesc: "27 tools · grouped by category",
+    mobileDesc: "32 tools · grouped by category",
   },
   lang: { label: "Language" },
   cats: { all: "All", core: "Core", convert: "Convert", edit: "Edit", security: "Security" },
@@ -96,7 +96,7 @@ const en = {
       },
       {
         t: "Pick a tool",
-        d: "Choose from 27 tools — or accept the one SwiftPDF suggests for the files you dropped.",
+        d: "Choose from 32 tools — or accept the one SwiftPDF suggests for the files you dropped.",
       },
       {
         t: "Download the result",
@@ -206,7 +206,7 @@ const es: Copy = {
   mega: {
     aria: "Todas las herramientas, por categoría",
     mobileTitle: "Todas las herramientas",
-    mobileDesc: "27 herramientas · por categoría",
+    mobileDesc: "32 herramientas · por categoría",
   },
   lang: { label: "Idioma" },
   cats: { all: "Todas", core: "Esenciales", convert: "Convertir", edit: "Edición", security: "Seguridad" },
@@ -254,7 +254,7 @@ const es: Copy = {
       },
       {
         t: "Elige una herramienta",
-        d: "Elige entre 27 herramientas — o acepta la que SwiftPDF sugiera para los archivos que soltaste.",
+        d: "Elige entre 32 herramientas — o acepta la que SwiftPDF sugiera para los archivos que soltaste.",
       },
       {
         t: "Descarga el resultado",
@@ -362,7 +362,7 @@ const fr: Copy = {
   mega: {
     aria: "Tous les outils, par catégorie",
     mobileTitle: "Tous les outils",
-    mobileDesc: "27 outils · par catégorie",
+    mobileDesc: "32 outils · par catégorie",
   },
   lang: { label: "Langue" },
   cats: { all: "Tous", core: "Essentiels", convert: "Conversion", edit: "Édition", security: "Sécurité" },
@@ -410,7 +410,7 @@ const fr: Copy = {
       },
       {
         t: "Choisissez un outil",
-        d: "27 outils au choix — ou acceptez celui que SwiftPDF suggère pour les fichiers déposés.",
+        d: "32 outils au choix — ou acceptez celui que SwiftPDF suggère pour les fichiers déposés.",
       },
       {
         t: "Téléchargez le résultat",
