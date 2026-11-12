@@ -28,6 +28,7 @@ import {
   Type,
   EyeOff,
   Layers,
+  FileCog,
 } from "lucide-react";
 
 export type ToolCategory = "core" | "convert" | "edit" | "security";
@@ -462,6 +463,21 @@ export const TOOLS: ToolDef[] = [
     badge: "New",
     category: "edit",
     icon: Layers,
+    accept: "application/pdf",
+    minFiles: 1,
+    maxFiles: 10,
+    input: "pdf",
+  },
+  {
+    id: "edit-metadata",
+    name: "Edit Metadata",
+    tagline: "Title, author, keywords & more",
+    description:
+      "Read a PDF's document info and rewrite it — title, author, subject, keywords, creator and producer, all on this device.",
+    keywords: "metadata title author subject keywords properties info document details",
+    badge: "New",
+    category: "edit",
+    icon: FileCog,
     accept: "application/pdf",
     minFiles: 1,
     maxFiles: 10,

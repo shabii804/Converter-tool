@@ -1313,6 +1313,127 @@ async function runFlatten(
 }
 
 /* ================================================================
+   9) EDIT PDF METADATA — read + rewrite the document info dictionary
+   ================================================================ */
+
+export interface PdfInfoMeta {
+  title: string;
+  author: string;
+  subject: string;
+  keywords: string;
+  creator: string;
+  producer: string;
+}
+
+/** UI-facing read helper (same pattern as firstPagePreview in pdf-engine) */
+export async function readPdfMetadata(file: File): Promise<PdfInfoMeta> {
+  const empty: PdfInfoMeta = {
+    title: "",
+    author: "",
+    subject: "",
+    keywords: "",
+    creator: "",
+    producer: "",
+  };
+  try {
+    const { PDFDocument } = await getPdfLib();
+    const doc = await PDFDocument.load(await file.arrayBuffer(), {
+      ignoreEncryption: true,
+    });
+    const kw = doc.getKeywords();
+    return {
+      title: doc.getTitle() ?? "",
+      author: doc.getAuthor() ?? "",
+      subject: doc.getSubject() ?? "",
+      keywords: Array.isArray(kw) ? kw.join(", ") : (kw ?? ""),
+      creator: doc.getCreator() ?? "",
+      producer: doc.getProducer() ?? "",
+    };
+  } catch {
+    return empty;
+  }
+}
+
+export interface MetadataEditOptions extends PdfInfoMeta {
+  /** also write "" into every field the user left empty */
+  clearEmpty: boolean;
+}
+
+async function runEditMetadata(
+  entries: { id: string; file: File }[],
+  opts: MetadataEditOptions,
+  cb: RunCallbacks
+): Promise<EngineResult> {
+  const outFiles: EngineResult["files"] = [];
+  const touchedAll: string[] = [];
+
+  const applyField = (
+    value: string,
+    clearEmpty: boolean,
+    setter: (v: string) => void
+  ): boolean => {
+    const v = value.trim();
+    if (v) {
+      setter(v);
+      return true;
+    }
+    if (clearEmpty) {
+      setter("");
+      return true;
+    }
+    return false;
+  };
+
+  for (let i = 0; i < entries.length; i++) {
+    const { id, file } = entries[i];
+    const bytes = await fileToBytes(file);
+    const { PDFDocument } = await getPdfLib();
+    const doc = await PDFDocument.load(bytes, { ignoreEncryption: true });
+
+    const touched: string[] = [];
+    if (applyField(opts.title, opts.clearEmpty, (v) => doc.setTitle(v)))
+      touched.push("title");
+    if (applyField(opts.author, opts.clearEmpty, (v) => doc.setAuthor(v)))
+      touched.push("author");
+    if (applyField(opts.subject, opts.clearEmpty, (v) => doc.setSubject(v)))
+      touched.push("subject");
+    if (
+      applyField(opts.keywords, opts.clearEmpty, (v) =>
+        doc.setKeywords(
+          v ? v.split(",").map((k) => k.trim()).filter(Boolean) : []
+        )
+      )
+    )
+      touched.push("keywords");
+    if (applyField(opts.creator, opts.clearEmpty, (v) => doc.setCreator(v)))
+      touched.push("creator");
+    if (applyField(opts.producer, opts.clearEmpty, (v) => doc.setProducer(v)))
+      touched.push("producer");
+
+    const saved = await doc.save({ useObjectStreams: true });
+    const blob = pdfBlob(saved);
+    outFiles.push({
+      name: `${baseName(file.name)}-metadata.pdf`,
+      blob,
+      size: blob.size,
+      kind: "PDF",
+    });
+    touchedAll.push(...touched);
+    cb.onFileProgress?.(id, (i + 1) / entries.length);
+    cb.onOverall?.((i + 1) / entries.length);
+  }
+  cb.onOverall?.(1);
+
+  const uniq = [...new Set(touchedAll)];
+  return {
+    files: outFiles,
+    note: uniq.length
+      ? `Updated: ${uniq.join(", ")}${opts.clearEmpty ? " · fields left empty were cleared" : ""}`
+      : "Nothing was changed — every field was left as-is",
+  };
+}
+
+/* ================================================================
    DISPATCHER
    ================================================================ */
 
@@ -1329,6 +1450,7 @@ export const EXTRA_TOOL_IDS = [
   "text-to-pdf",
   "redact-pdf",
   "flatten",
+  "edit-metadata",
 ] as const;
 
 export type ExtraToolId = (typeof EXTRA_TOOL_IDS)[number];
@@ -1368,6 +1490,8 @@ export async function runExtraTool(
       return runRedact(entries, opts, cb);
     case "flatten":
       return runFlatten(entries, opts, cb);
+    case "edit-metadata":
+      return runEditMetadata(entries, opts, cb);
     default:
       throw new Error("Unknown tool");
   }

@@ -118,6 +118,14 @@ interface Options {
   editorCount: number;
   // flatten
   flattenQuality: "standard" | "high" | "lossless";
+  // edit-metadata
+  mdTitle: string;
+  mdAuthor: string;
+  mdSubject: string;
+  mdKeywords: string;
+  mdCreator: string;
+  mdProducer: string;
+  mdClearEmpty: boolean;
 }
 
 const defaultOptions = (): Options => ({
@@ -174,6 +182,13 @@ const defaultOptions = (): Options => ({
   editorOpts: {},
   editorCount: 0,
   flattenQuality: "high",
+  mdTitle: "",
+  mdAuthor: "",
+  mdSubject: "",
+  mdKeywords: "",
+  mdCreator: "",
+  mdProducer: "",
+  mdClearEmpty: false,
 });
 
 /** Friendly large-file threshold (honest copy, no fake limits). */
@@ -248,6 +263,17 @@ export function Workspace({
     if (tool.id === "sign-pdf" && opts.editorCount === 0) return false;
     if (tool.id === "redact-pdf" && opts.editorCount === 0) return false;
     if (tool.id === "text-to-pdf" && !opts.ttfText.trim()) return false;
+    if (tool.id === "edit-metadata") {
+      const anyField = [
+        opts.mdTitle,
+        opts.mdAuthor,
+        opts.mdSubject,
+        opts.mdKeywords,
+        opts.mdCreator,
+        opts.mdProducer,
+      ].some((v) => v.trim());
+      if (!anyField && !opts.mdClearEmpty) return false;
+    }
     return true;
   }, [tool, files, opts]);
 
@@ -579,6 +605,16 @@ function buildOptions(
       return opts.editorOpts;
     case "flatten":
       return { quality: opts.flattenQuality };
+    case "edit-metadata":
+      return {
+        title: opts.mdTitle,
+        author: opts.mdAuthor,
+        subject: opts.mdSubject,
+        keywords: opts.mdKeywords,
+        creator: opts.mdCreator,
+        producer: opts.mdProducer,
+        clearEmpty: opts.mdClearEmpty,
+      };
     default:
       return {};
   }
@@ -610,6 +646,18 @@ function hint(toolId: string, opts: Options, files: StoreFile[]): string {
     return "Draw at least one redaction box over the text you want removed";
   if (toolId === "text-to-pdf" && !opts.ttfText.trim())
     return "Type or paste some text first";
+  if (toolId === "edit-metadata") {
+    const anyField = [
+      opts.mdTitle,
+      opts.mdAuthor,
+      opts.mdSubject,
+      opts.mdKeywords,
+      opts.mdCreator,
+      opts.mdProducer,
+    ].some((v) => v.trim());
+    if (!anyField && !opts.mdClearEmpty)
+      return "Type a new value in any field — or switch on “Clear fields I leave empty”";
+  }
   return "";
 }
 
@@ -1441,6 +1489,9 @@ function OptionsPanel({
         </div>
       );
 
+    case "edit-metadata":
+      return <MetadataOptions opts={opts} set={set} files={files} />;
+
     default:
       return null;
   }
@@ -1696,6 +1747,100 @@ function CropOptions({
         Crop sets the visible page box — it does not delete the cropped
         content from the file. Use Protect afterwards if that matters for you.
       </p>
+    </div>
+  );
+}
+
+/* ---------- metadata editor (reads current info on file add) ---------- */
+
+function MetadataOptions({
+  opts,
+  set,
+  files,
+}: {
+  opts: Options;
+  set: <K extends keyof Options>(k: K, v: Options[K]) => void;
+  files: StoreFile[];
+}) {
+  const [reading, setReading] = useState(false);
+  const lastFile = useRef<string>("");
+
+  useEffect(() => {
+    const f = files[0]?.file;
+    if (!f) {
+      lastFile.current = "";
+      return;
+    }
+    const key = `${f.name}:${f.size}`;
+    if (key === lastFile.current) return;
+    lastFile.current = key;
+    let alive = true;
+    setReading(true);
+    import("@/lib/extra-engine")
+      .then((m) => m.readPdfMetadata(f))
+      .then((info) => {
+        if (!alive) return;
+        set("mdTitle", info.title);
+        set("mdAuthor", info.author);
+        set("mdSubject", info.subject);
+        set("mdKeywords", info.keywords);
+        set("mdCreator", info.creator);
+        set("mdProducer", info.producer);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (alive) setReading(false);
+      });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [files]);
+
+  const field = (
+    key: "mdTitle" | "mdAuthor" | "mdSubject" | "mdKeywords" | "mdCreator" | "mdProducer",
+    label: string,
+    placeholder: string
+  ) => (
+    <div>
+      <Label className="mb-2 block text-[13px] font-medium">{label}</Label>
+      <Input
+        value={opts[key]}
+        onChange={(e) => set(key, e.target.value)}
+        placeholder={placeholder}
+      />
+    </div>
+  );
+
+  return (
+    <div className="space-y-5">
+      <p className="rounded-control bg-surface-1 p-4 text-[13px] leading-relaxed text-fg-muted">
+        {reading
+          ? "Reading this file's current document info…"
+          : "Fields start from this file's current info. Edit freely — values apply to every file added, and empty fields are left untouched unless you enable clearing below."}
+      </p>
+      <TwoCol>
+        {field("mdTitle", "Title", "Document title")}
+        {field("mdAuthor", "Author", "Author name")}
+        {field("mdSubject", "Subject", "What the document is about")}
+        {field("mdKeywords", "Keywords", "comma, separated, keywords")}
+        {field("mdCreator", "Creator", "Application that authored it")}
+        {field("mdProducer", "Producer", "Application that wrote the PDF")}
+      </TwoCol>
+      <div className="flex items-center justify-between gap-4 rounded-control border border-border p-4">
+        <div>
+          <Label className="text-[13px] font-medium">
+            Clear fields I leave empty
+          </Label>
+          <p className="mt-0.5 text-micro text-fg-faint">
+            Writes an empty value into every untouched field
+          </p>
+        </div>
+        <Switch
+          checked={opts.mdClearEmpty}
+          onCheckedChange={(v) => set("mdClearEmpty", v)}
+        />
+      </div>
     </div>
   );
 }
