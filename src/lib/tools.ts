@@ -294,10 +294,11 @@ export const TOOLS: ToolDef[] = [
   {
     id: "edit-pdf",
     name: "Edit PDF",
-    tagline: "Text, highlights, shapes, images",
+    tagline: "Text, whiteout, shapes, images",
     description:
-      "Add text, highlights, freehand drawings, shapes and images anywhere on the page.",
-    keywords: "annotate add text highlight draw shapes image comment",
+      "Add text, highlights, drawings, shapes and images — or cover existing text with whiteout and retype it.",
+    keywords:
+      "annotate add text highlight draw shapes image comment whiteout cover replace edit",
     badge: "New",
     category: "edit",
     icon: PenLine,

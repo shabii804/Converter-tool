@@ -1507,8 +1507,8 @@ function OptionsPanel({
         <AnnotationEditor file={files[0].file} mode="edit" onChange={onEditorChange} />
       ) : (
         <p className="rounded-control bg-surface-1 p-4 text-[13px] text-fg-muted">
-          Add a PDF on the left, then edit it here — text, highlights, shapes,
-          freehand drawings and images.
+          Add a PDF on the left, then edit it here — text, whiteout, highlights,
+          shapes, freehand drawings and images.
         </p>
       );
 

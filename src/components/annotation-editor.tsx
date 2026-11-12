@@ -18,6 +18,7 @@ import {
   ImagePlus,
   Signature,
   EyeOff,
+  Eraser,
   Undo2,
   Trash2,
   ChevronLeft,
@@ -45,6 +46,7 @@ interface EditorItem {
     | "draw"
     | "image"
     | "signature"
+    | "whiteout"
     | "redact";
   x?: number;
   y?: number;
@@ -59,6 +61,8 @@ interface EditorItem {
   points?: { x: number; y: number }[];
   dataUrl?: string;
   rotate?: number;
+  /** whiteout cover fill (defaults to white) */
+  fill?: string;
 }
 
 const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
@@ -70,6 +74,8 @@ const HIGHLIGHT_COLOR = "#FDE047";
 const TOOL_HINTS: Record<string, string> = {
   select: "Tap an item to select it — drag to move, corner handle to resize.",
   text: "Click anywhere on the page to place a text box, then type in the panel below.",
+  whiteout:
+    "Drag over existing text to cover it, then place your own text on top. Covers only — the content stays in the file; use Redact PDF to remove it for good.",
   highlight: "Drag over an area to highlight it.",
   rect: "Drag to draw a rectangle.",
   ellipse: "Drag to draw an ellipse.",
@@ -79,6 +85,42 @@ const TOOL_HINTS: Record<string, string> = {
   sig: "Pick a signature below, then place it on the page.",
   redact: "Drag to draw a black box over the content you want removed.",
 };
+
+/* CSS stacks that are metric-compatible with the standard PDF fonts the
+   engine embeds — Arial = Helvetica, Times New Roman = Times, Courier New =
+   Courier — so the overlay shows the same glyph widths the saved PDF will */
+const OVERLAY_FONTS: Record<string, string> = {
+  helvetica: 'Arial, Helvetica, sans-serif',
+  "helvetica-bold": 'Arial, Helvetica, sans-serif',
+  times: '"Times New Roman", Times, serif',
+  "times-bold": '"Times New Roman", Times, serif',
+  courier: '"Courier New", Courier, monospace',
+  "courier-bold": '"Courier New", Courier, monospace',
+};
+
+let overlayMeasureCtx: CanvasRenderingContext2D | null = null;
+
+/** shared layout metrics for a text item — used by the hit box AND the
+    overlay div so both sit exactly where the engine will draw the text */
+function overlayTextMetrics(sizePx: number, font?: string) {
+  if (!overlayMeasureCtx)
+    overlayMeasureCtx = document.createElement("canvas").getContext("2d");
+  const ctx = overlayMeasureCtx!;
+  const stack = OVERLAY_FONTS[font ?? "helvetica"] ?? OVERLAY_FONTS.helvetica;
+  ctx.font = `${sizePx}px ${stack}`;
+  const m = ctx.measureText("Hg");
+  const ascent = m.fontBoundingBoxAscent || sizePx * 0.905;
+  const descent = m.fontBoundingBoxDescent || sizePx * 0.212;
+  const lineHeight = sizePx * 1.35; // matches the engine's drawText lineHeight
+  const halfLead = Math.max(0, (lineHeight - ascent - descent) / 2);
+  return {
+    stack,
+    lineHeight,
+    /** distance from the top of the first line box to its baseline */
+    baselineOffset: halfLead + ascent,
+    width: (t: string) => ctx.measureText(t).width,
+  };
+}
 
 interface PageMeta {
   vpt1: any; // pdf.js viewport at scale 1 (rotation applied)
@@ -102,7 +144,7 @@ export function AnnotationEditor({
   const [items, setItems] = useState<EditorItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tool, setTool] = useState<
-    "select" | "text" | "highlight" | "rect" | "ellipse" | "line" | "draw" | "image" | "sig" | "redact"
+    "select" | "text" | "whiteout" | "highlight" | "rect" | "ellipse" | "line" | "draw" | "image" | "sig" | "redact"
   >(mode === "redact" ? "redact" : mode === "sign" ? "sig" : "select");
   const [color, setColor] = useState(mode === "redact" ? "#000000" : "#1D4ED8");
   const [renderScale, setRenderScale] = useState(0); // 0 = not computed yet
@@ -290,6 +332,19 @@ export function AnnotationEditor({
             color: it.color ?? HIGHLIGHT_COLOR,
             opacity: 0.35,
           });
+        } else if (it.kind === "whiteout") {
+          out.push({
+            page: it.page,
+            type: "rect",
+            x: it.x,
+            y: it.y,
+            w: it.w,
+            h: it.h,
+            color: it.fill ?? "#FFFFFF",
+            fill: it.fill ?? "#FFFFFF",
+            thickness: 0,
+            opacity: 1,
+          });
         } else if (it.kind === "rect" || it.kind === "ellipse") {
           out.push({
             page: it.page,
@@ -431,8 +486,18 @@ export function AnnotationEditor({
     if (it.kind === "text") {
       const a = toCanvas(it.x, it.y);
       const sizePx = (it.size ?? 14) * renderScale;
-      const w = (it.text?.length ?? 0) * sizePx * 0.55 || sizePx * 4;
-      return { x: a.x, y: a.y - sizePx, w: Math.max(w, 24), h: sizePx * 1.3 };
+      const tm = overlayTextMetrics(sizePx, it.font);
+      const lines = (it.text ?? "").split("\n");
+      const w = Math.max(
+        ...lines.map((t) => tm.width(t || " ")),
+        sizePx * 2
+      );
+      return {
+        x: a.x,
+        y: a.y - tm.baselineOffset,
+        w: Math.max(w, 24),
+        h: tm.lineHeight * lines.length,
+      };
     }
     const a = toCanvas(it.x!, it.y! + (it.h ?? 0));
     const b = toCanvas(it.x! + (it.w ?? 0), it.y!);
@@ -634,6 +699,19 @@ export function AnnotationEditor({
             h: Math.abs(b.y - a.y),
           },
         ]);
+      } else if (tool === "whiteout") {
+        addItems([
+          {
+            id: uid(),
+            page: pageIndex,
+            kind: "whiteout",
+            x: Math.min(a.x, b.x),
+            y: Math.min(a.y, b.y),
+            w: Math.abs(b.x - a.x),
+            h: Math.abs(b.y - a.y),
+            fill: "#FFFFFF",
+          },
+        ]);
       } else if (tool === "highlight") {
         addItems([
           {
@@ -732,6 +810,7 @@ export function AnnotationEditor({
         : ([
             { id: "select", icon: MousePointer2, label: "Select / move" },
             { id: "text", icon: TypeIcon, label: "Add text" },
+            { id: "whiteout", icon: Eraser, label: "Whiteout" },
             { id: "highlight", icon: Highlighter, label: "Highlight" },
             { id: "rect", icon: Square, label: "Rectangle" },
             { id: "ellipse", icon: Circle, label: "Ellipse" },
@@ -754,7 +833,7 @@ export function AnnotationEditor({
       <div className="flex flex-wrap items-center gap-1.5" role="toolbar" aria-label="Editor tools">
         {toolsForMode.map((t, i) => (
           <span key={t.id} className="flex items-center gap-1.5">
-            {(i === 1 || i === 4) && mode === "edit" && (
+            {(i === 1 || i === 5) && mode === "edit" && (
               <span className="mx-0.5 hidden h-6 w-px bg-border max-sm:hidden sm:block" aria-hidden="true" />
             )}
             <button
@@ -858,6 +937,8 @@ export function AnnotationEditor({
                   if (!box) return null;
                   const sel = it.id === selectedId;
                   if (it.kind === "text") {
+                    const sizePx = (it.size ?? 14) * renderScale;
+                    const tm = overlayTextMetrics(sizePx, it.font);
                     return (
                       <div
                         key={it.id}
@@ -866,27 +947,41 @@ export function AnnotationEditor({
                           setTimeout(() => document.getElementById("ann-text")?.focus(), 60);
                         }}
                         className={cn(
-                          "absolute cursor-move whitespace-pre rounded-sm border border-transparent px-0.5",
+                          "absolute cursor-move whitespace-pre rounded-sm border border-transparent",
                           sel && "bg-primary/10"
                         )}
                         style={{
                           left: box.x,
                           top: box.y,
                           color: it.color,
-                          fontSize: (it.size ?? 14) * renderScale,
-                          fontFamily:
-                            it.font === "times"
-                              ? "Georgia, serif"
-                              : it.font === "courier"
-                                ? "monospace"
-                                : "system-ui, sans-serif",
+                          fontSize: sizePx,
+                          fontFamily: tm.stack,
                           fontWeight: it.font?.includes("bold") ? 700 : 400,
+                          lineHeight: `${tm.lineHeight}px`,
                           outline: sel ? `${Math.max(1.5, 2 / displayScale)}px solid var(--ring)` : undefined,
                           outlineOffset: sel ? `${1 / displayScale}px` : undefined,
                         }}
                       >
                         {it.text}
                       </div>
+                    );
+                  }
+                  if (it.kind === "whiteout") {
+                    return (
+                      <div
+                        key={it.id}
+                        className="absolute cursor-move"
+                        style={{
+                          left: box.x,
+                          top: box.y,
+                          width: box.w,
+                          height: box.h,
+                          background: it.fill ?? "#FFFFFF",
+                          border: "1.5px dashed rgba(100,116,139,0.9)",
+                          outline: sel ? `${Math.max(1.5, 2 / displayScale)}px solid var(--ring)` : undefined,
+                          outlineOffset: sel ? `${1 / displayScale}px` : undefined,
+                        }}
+                      />
                     );
                   }
                   if (it.kind === "draw" || it.kind === "line") {
@@ -1150,10 +1245,29 @@ export function AnnotationEditor({
               </div>
             </div>
           ) : (
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-[13px] text-fg-muted">
-                {labelFor(selected)} — drag to move, corner handle to resize.
-              </p>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <p className="text-[13px] text-fg-muted">
+                  {labelFor(selected)} —{" "}
+                  {selected.kind === "image" || selected.kind === "signature"
+                    ? "drag to move, corner handle to resize."
+                    : "drag to move."}
+                </p>
+                {selected.kind === "whiteout" && (
+                  <label className="flex items-center gap-2 text-[12px] font-medium text-fg-muted">
+                    Cover color
+                    <input
+                      type="color"
+                      value={selected.fill ?? "#FFFFFF"}
+                      onChange={(e) =>
+                        updateItem(selected.id, { fill: e.target.value }, false)
+                      }
+                      className="h-8 w-10 cursor-pointer rounded-control border border-border bg-background p-0.5"
+                      aria-label="Whiteout cover color"
+                    />
+                  </label>
+                )}
+              </div>
               <button
                 onClick={deleteSelected}
                 className="min-h-11 rounded-control border border-destructive/40 bg-destructive/10 px-3 text-[13px] font-semibold text-destructive outline-none hover:bg-destructive/20 focus-visible:ring-2 focus-visible:ring-ring"
@@ -1223,6 +1337,8 @@ function labelFor(it: EditorItem): string {
       return "Image";
     case "signature":
       return "Signature";
+    case "whiteout":
+      return "Whiteout cover";
     case "redact":
       return "Redaction box";
     default:
