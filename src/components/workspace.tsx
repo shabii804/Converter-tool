@@ -92,6 +92,8 @@ interface Options {
   targetKB: number;
   // image tools
   imgQuality: number;
+  /** convert-image output quality — high by default so conversions don't degrade */
+  convertQuality: number;
   imgFormat: "jpeg" | "webp";
   imgMaxDim: number;
   resizeMode: "width" | "height" | "percent" | "fit";
@@ -151,6 +153,7 @@ const defaultOptions = (): Options => ({
   organizeDeleted: new Set(),
   targetKB: 200,
   imgQuality: 0.6,
+  convertQuality: 0.92,
   imgFormat: "jpeg",
   imgMaxDim: 0,
   resizeMode: "width",
@@ -550,7 +553,7 @@ function buildOptions(
     case "convert-image":
       return {
         format: opts.convertFormat,
-        quality: opts.imgQuality,
+        quality: opts.convertQuality,
       };
     case "pdf-to-png":
       return { scale: opts.pngScale };
@@ -1207,14 +1210,14 @@ function OptionsPanel({
           {opts.convertFormat !== "png" && (
             <div>
               <Label className="mb-2 block text-[13px] font-medium">
-                Quality · {Math.round(opts.imgQuality * 100)}%
+                Quality · {Math.round(opts.convertQuality * 100)}%
               </Label>
               <Slider
                 min={20}
                 max={95}
                 step={5}
-                value={[Math.round(opts.imgQuality * 100)]}
-                onValueChange={([v]) => set("imgQuality", v / 100)}
+                value={[Math.round(opts.convertQuality * 100)]}
+                onValueChange={([v]) => set("convertQuality", v / 100)}
               />
             </div>
           )}
