@@ -42,7 +42,7 @@ export function ToolCard({
         href={localeHref(`/tool/${tool.id}`)}
         onClick={() => onOpen(tool.id)}
         className={cn(
-          "relative flex min-h-[120px] w-full flex-col items-start gap-3 rounded-card border border-border bg-surface-2 p-5 pr-14 text-left shadow-xs outline-none",
+          "relative flex min-h-[120px] w-full flex-col items-start gap-2 rounded-card border border-border bg-surface-2 p-3 text-left shadow-xs outline-none sm:gap-3 sm:p-5 sm:pr-14",
           "transition-[box-shadow,border-color,translate] duration-200 hover:border-border-strong hover:shadow-md hover:-translate-y-0.5",
           "focus-visible:ring-2 focus-visible:ring-ring"
         )}
@@ -52,7 +52,7 @@ export function ToolCard({
           <IconTile icon={tool.icon} category={tool.category} size="md" />
           {tool.badge && (
             <span
-              className="mt-0.5 rounded-chip px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+              className="mt-0.5 rounded-chip px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide max-sm:hidden sm:inline-block"
               style={{
                 color: `var(${meta.accentVar})`,
                 background: `var(${meta.tintVar})`,
@@ -63,8 +63,8 @@ export function ToolCard({
           )}
         </div>
         <span>
-          <span className="block text-sm font-bold leading-tight">{tool.name}</span>
-          <span className="mt-1 block text-[13px] leading-snug text-fg-muted">{tool.tagline}</span>
+          <span className="block text-[13px] font-bold leading-tight sm:text-sm">{tool.name}</span>
+          <span className="mt-1 block text-[11px] leading-snug text-fg-muted line-clamp-2 sm:text-[13px]">{tool.tagline}</span>
         </span>
       </Link>
 
@@ -76,7 +76,7 @@ export function ToolCard({
           }}
           aria-pressed={favorite}
           aria-label={favorite ? favRemoveLabel : favAddLabel}
-          className="absolute right-1.5 top-1.5 z-10 flex size-11 items-center justify-center rounded-chip text-fg-faint outline-none transition-colors hover:bg-surface-3 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring sm:size-10"
+          className="absolute right-1.5 top-1.5 z-10 flex size-9 items-center justify-center rounded-chip text-fg-faint outline-none transition-colors hover:bg-surface-3 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring sm:size-10"
         >
           <Star
             className={cn("size-4 transition-colors", favorite && "fill-primary text-primary")}
