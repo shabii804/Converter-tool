@@ -1,0 +1,546 @@
+{
+  "run": "run-8",
+  "harness": "scripts/baseline/harness.src.ts → tests/baseline/harness/harness.js (esbuild)",
+  "engineSource": "src/lib/pdf-engine.ts (unmodified)",
+  "samples": "tests/baseline/samples (deterministic)",
+  "chromium": "143.0.7499.4",
+  "pageErrors": [],
+  "runs": {
+    "merge": {
+      "ok": true,
+      "ms": 178,
+      "note": "2 PDFs combined",
+      "outputs": [
+        {
+          "name": "merged.pdf",
+          "kind": "PDF",
+          "size": 5813,
+          "pageCount": 5,
+          "pages": [
+            {
+              "w": 595.28,
+              "h": 841.89
+            },
+            {
+              "w": 595.28,
+              "h": 841.89
+            },
+            {
+              "w": 595.28,
+              "h": 841.89
+            },
+            {
+              "w": 595.28,
+              "h": 841.89
+            },
+            {
+              "w": 595.28,
+              "h": 841.89
+            }
+          ],
+          "textHash": "ba24e87357ced8b11c7a89176d498955b1d51dc9784645ac1c7d88e7fe1c4864",
+          "sha256": "dea05f0c51121a5b96b0326d7d410a8f2040a983291f4cadbc364145eb5c8a00"
+        }
+      ]
+    },
+    "split@ranges": {
+      "ok": true,
+      "ms": 120,
+      "note": "1 file(s) created",
+      "outputs": [
+        {
+          "name": "sample-text-2pages.pdf",
+          "kind": "PDF",
+          "size": 2772,
+          "pageCount": 2,
+          "pages": [
+            {
+              "w": 595.28,
+              "h": 841.89
+            },
+            {
+              "w": 595.28,
+              "h": 841.89
+            }
+          ],
+          "textHash": "733bc5f77fb826367d1940c4ec610a88aad80bd7174c00d7f82307949a345a44",
+          "sha256": "b4c0a8a1848e23bd0b2d76bd7285dad78a5b43a3e9c38ee092abae4eb47329d5"
+        }
+      ]
+    },
+    "split@fixed": {
+      "ok": true,
+      "ms": 213,
+      "note": "2 file(s) created",
+      "outputs": [
+        {
+          "name": "sample-text-part1.pdf",
+          "kind": "PDF",
+          "size": 2772,
+          "pageCount": 2,
+          "pages": [
+            {
+              "w": 595.28,
+              "h": 841.89
+            },
+            {
+              "w": 595.28,
+              "h": 841.89
+            }
+          ],
+          "textHash": "733bc5f77fb826367d1940c4ec610a88aad80bd7174c00d7f82307949a345a44",
+          "sha256": "d368e24d72088b5cf4590a4b1ca31c8d2e3a297591ea64590a9503cbfccb332b"
+        },
+        {
+          "name": "sample-text-part2.pdf",
+          "kind": "PDF",
+          "size": 1733,
+          "pageCount": 1,
+          "pages": [
+            {
+              "w": 595.28,
+              "h": 841.89
+            }
+          ],
+          "textHash": "e311303fcc7655d79db582f9ee066816507bb5aa221172029387de427c5672ad",
+          "sha256": "613697f71156effd6d69923bb2f08cd10b2c486f49226bce91c0a6f79bf0b716"
+        }
+      ]
+    },
+    "split@extract": {
+      "ok": true,
+      "ms": 110,
+      "note": "1 file(s) created",
+      "outputs": [
+        {
+          "name": "sample-text-2pages.pdf",
+          "kind": "PDF",
+          "size": 2776,
+          "pageCount": 2,
+          "pages": [
+            {
+              "w": 595.28,
+              "h": 841.89
+            },
+            {
+              "w": 595.28,
+              "h": 841.89
+            }
+          ],
+          "textHash": "04cbc0f4fb79d34a623b00583867d009d1c0f80a7bc3bf96a1e3f11d2f841480",
+          "sha256": "29ff2a79cdb06c74eb88ae314973d07dcc9afd2032db42356b83c5b197c680d4"
+        }
+      ]
+    },
+    "compress": {
+      "ok": true,
+      "ms": 552,
+      "note": "Already optimized — kept the smaller re-save",
+      "outputs": [
+        {
+          "name": "sample-text-compressed.pdf",
+          "kind": "PDF",
+          "size": 3818,
+          "pageCount": 3,
+          "pages": [
+            {
+              "w": 595.28,
+              "h": 841.89
+            },
+            {
+              "w": 595.28,
+              "h": 841.89
+            },
+            {
+              "w": 595.28,
+              "h": 841.89
+            }
+          ],
+          "textHash": "2bec1a2bfa6dc2715bf413d9b0b64f153a382f4379ef748b06f14794dc702a53",
+          "sha256": "5fe72de6a2f455cae61c4fe3962c9d3359ee20a5a913165e81252b8515e29dcf"
+        },
+        {
+          "name": "sample-image-compressed.pdf",
+          "kind": "PDF",
+          "size": 34686,
+          "pageCount": 2,
+          "pages": [
+            {
+              "w": 595.28,
+              "h": 841.89
+            },
+            {
+              "w": 595.28,
+              "h": 841.89
+            }
+          ],
+          "textHash": "7acbaab88675e8a6db7eab2106b2850045c7d479c8c57852d7af234f192a6481",
+          "sha256": "9f9db72b566bd4e435bd62943f354e1cf67e8802033e693a4911d37226a6ef98"
+        }
+      ]
+    },
+    "organize": {
+      "ok": true,
+      "ms": 120,
+      "note": "3 pages kept",
+      "outputs": [
+        {
+          "name": "sample-text-organized.pdf",
+          "kind": "PDF",
+          "size": 3863,
+          "pageCount": 3,
+          "pages": [
+            {
+              "w": 595.28,
+              "h": 841.89
+            },
+            {
+              "w": 841.89,
+              "h": 595.28
+            },
+            {
+              "w": 595.28,
+              "h": 841.89
+            }
+          ],
+          "textHash": "b56775b164a8da7bce7f751dc68ae4ba60f0c9390a4ae480bff7e9bdac23738e",
+          "sha256": "7fd8c474911f197f6427ed04275cf45607ab762910f7d95f5631867d178b5514"
+        }
+      ]
+    },
+    "rotate": {
+      "ok": true,
+      "ms": 128,
+      "note": "Rotated 90°",
+      "outputs": [
+        {
+          "name": "sample-text-rotated.pdf",
+          "kind": "PDF",
+          "size": 3822,
+          "pageCount": 3,
+          "pages": [
+            {
+              "w": 841.89,
+              "h": 595.28
+            },
+            {
+              "w": 841.89,
+              "h": 595.28
+            },
+            {
+              "w": 841.89,
+              "h": 595.28
+            }
+          ],
+          "textHash": "2bec1a2bfa6dc2715bf413d9b0b64f153a382f4379ef748b06f14794dc702a53",
+          "sha256": "a6cde5b7e9f393d71bfbd5775191f25e7681a55e6768b8b0469ae4b3a738b521"
+        }
+      ]
+    },
+    "pdf-to-jpg": {
+      "ok": true,
+      "ms": 154,
+      "note": "3 image(s) rendered",
+      "outputs": [
+        {
+          "name": "sample-text-p1.jpg",
+          "kind": "JPG",
+          "size": 34142,
+          "imgW": 595,
+          "imgH": 841,
+          "sha256": "01fe62b4f46225de045e091899a8076bef00a6031760139a01edc031486173ac"
+        },
+        {
+          "name": "sample-text-p2.jpg",
+          "kind": "JPG",
+          "size": 34139,
+          "imgW": 595,
+          "imgH": 841,
+          "sha256": "b02c82da80a61ad2e052bd38c0f87e8c2584089116ce4df1791dbd13852508cf"
+        },
+        {
+          "name": "sample-text-p3.jpg",
+          "kind": "JPG",
+          "size": 34153,
+          "imgW": 595,
+          "imgH": 841,
+          "sha256": "487c1714ee154c9f6f2190e2296de54d0fc2af160c65b6185bd87ac6614a533b"
+        }
+      ]
+    },
+    "jpg-to-pdf": {
+      "ok": true,
+      "ms": 97,
+      "note": "1 image(s) placed",
+      "outputs": [
+        {
+          "name": "sample-photo.pdf",
+          "kind": "PDF",
+          "size": 34301,
+          "pageCount": 1,
+          "pages": [
+            {
+              "w": 841.89,
+              "h": 595.28
+            }
+          ],
+          "textHash": "dbc1b4c900ffe48d575b5da5c638040125f65db0fe3e24494b76ea986457d986",
+          "sha256": "69d2eee6c95aaeaef7c730b8bb71509f7d55f3d754be6219e13de16912ccfa98"
+        }
+      ]
+    },
+    "pdf-to-word": {
+      "ok": true,
+      "ms": 167,
+      "note": "Text layer extracted — scanned PDFs have no text layer",
+      "outputs": [
+        {
+          "name": "sample-text.docx",
+          "kind": "DOCX",
+          "size": 10017,
+          "sha256": "9b86071bedb5dc9d026604e45827db8339d78df093c25dd68fef1fa00ef5ed34",
+          "zipEntries": {
+            "[Content_Types].xml": "7052d2df1dd93d4e297d715d56bf08fbc5b2072cc6a75e7a5b73c4406ab1e52c",
+            "_rels/.rels": "641d22a23aa9eb550103a7a01471eaeda5e84c69413e6e03e7fd290b4811a756",
+            "docProps/app.xml": "579eba9a8d602575736c3880cf5b529aabbadee0e8cc0e4df8573db0ceadbd4b",
+            "docProps/custom.xml": "8ec73cc7ce297e42cc652a1d1884d4ffb18ffa0ba7a6502a36f8da90d1be61a1",
+            "word/_rels/document.xml.rels": "e721c4894c4be106f6a1805824f5ec4ef98759fd42bb27c397b0145e96303fde",
+            "word/_rels/endnotes.xml.rels": "bf64631f0bc7bd46712fef822bcfb22e069fa5779e133980ca0c9d81f00efc09",
+            "word/_rels/fontTable.xml.rels": "bf64631f0bc7bd46712fef822bcfb22e069fa5779e133980ca0c9d81f00efc09",
+            "word/_rels/footnotes.xml.rels": "bf64631f0bc7bd46712fef822bcfb22e069fa5779e133980ca0c9d81f00efc09",
+            "word/document.xml": "bd62355a88bfe0570806e6485ac0564acbed786c6aacbd23fce896957671cb88",
+            "word/endnotes.xml": "52f6c33e62c233e0d9f9c41ec259ffd943ea9cdc413293d43e6ffb213682a5cf",
+            "word/fontTable.xml": "a746dbb577ec5d68983d659707c0750ca89d40b9d3316e31af331d5e1c736bad",
+            "word/footnotes.xml": "774ce254f01cde1079d43e81a0db30ac82b3b2bae875b07c4fe28403ba30b6a9",
+            "word/numbering.xml": "805a1aa1e744da8e1f3c9ec8d38fba424865f9b3a9c0eb104578ed74f7f8637b",
+            "word/settings.xml": "8229735081fc1cf77a4586707176296a4744ff9702e50fbcfd69b92a4ee0f723",
+            "word/styles.xml": "06dc6a85ebaa55bfe8c147c4ef4ac8895950789d7bf7c581879c960b1186a865",
+            "word/theme/theme1.xml": "14d6fc4b249d866d8ab97f1ee68e6601c3feedc56857db791418573bf378f6de"
+          }
+        }
+      ]
+    },
+    "pdf-to-excel": {
+      "ok": true,
+      "ms": 139,
+      "note": "One row per text line — columns split by spacing",
+      "outputs": [
+        {
+          "name": "sample-text.xlsx",
+          "kind": "XLSX",
+          "size": 19758,
+          "sha256": "11545bd8dc1172ad10ba9c229ee8286b0ad431628663bc8811c1bd933cff524e",
+          "zipEntries": {
+            "[Content_Types].xml": "64cd6cda2fd8ff82110c3e0227dca039831577f64080c8b5a9f6a6160767e209",
+            "_rels/.rels": "0abebc7d82d195beb48d8458978e74108a2943a8e269ed657c306355ba8f6295",
+            "docProps/app.xml": "0d472600ebb033178c4ee3960a00f03ef7e50118bb4cea919f8a4680985b49ac",
+            "xl/_rels/workbook.xml.rels": "5c6814e99f1923bdd1f515947be8a57f7846fced7d3cb01b4da3e194b4081b4e",
+            "xl/metadata.xml": "fc5f9244ff0aa7d0115fa3722020e4dd2ae749cdc5820de7cde7b10741cb52bc",
+            "xl/styles.xml": "1cd6076bd97af399158ba1214d7fd77dbd74d8cc497de99c755dea4f0da0e1ae",
+            "xl/theme/theme1.xml": "af2fb29aa44e18757cbc03afd5c6ddf60deef78419009b6d07367fff46136fb1",
+            "xl/workbook.xml": "cdc5c7706bced0e81b17e7750da10cec8d1db70de883c9de8900cf48fdd5351d",
+            "xl/worksheets/sheet1.xml": "34386496d22678cef8a159dd40df27b7eed9a7d1a175f48f2f0fefaa7eaa514f"
+          }
+        }
+      ]
+    },
+    "pdf-to-ppt": {
+      "ok": true,
+      "ms": 229,
+      "note": "2 slide(s) — pages become slide images",
+      "outputs": [
+        {
+          "name": "sample-image.pptx",
+          "kind": "PPTX",
+          "size": 154587,
+          "sha256": "3605107b2b93ba58ccca6eed13102fdbf5a864634a292b239e7963f51ab58b2f",
+          "zipEntries": {
+            "[Content_Types].xml": "ffbbc09d41b22477f15b92b74535cd702db562398eefc8987ff9cc8c7d5d5db2",
+            "_rels/.rels": "a73dc65f1cb1959ca09044852c3697385e6124853bf5a0fa3f0215f608e86b47",
+            "docProps/app.xml": "dd3cc6b0071136f97df2952ffffcb83ccf7509972e3e8c8fa18e7602763b1797",
+            "ppt/_rels/presentation.xml.rels": "806396049cc0fc2ffe1b4ccad167239b1c23bd31e6b671a5718919dfbaec1ef9",
+            "ppt/media/image-1-1.jpeg": "100a76e47a331ea04a2ce6130cecd33be75f8dcdc67df0bc5550c834ef2fbc51",
+            "ppt/media/image-2-1.jpeg": "1d34547c4655f45b4a59f01ba7e457f2242fe15721bbf96685d35c61fdb99f76",
+            "ppt/notesMasters/_rels/notesMaster1.xml.rels": "92eb9005ae03705d1db0f1da37f89e4c77f61b2026efa66bdbf610d01116f2b9",
+            "ppt/notesMasters/notesMaster1.xml": "c2c0255a24d45ef3ad633078fd8a2dca43fc6db1b3eb36244a934eb0b9d97c57",
+            "ppt/notesSlides/_rels/notesSlide1.xml.rels": "4e7f04378558285258df490583e9ed0e8039b27df83bcdc2e5b4992cf47090f2",
+            "ppt/notesSlides/_rels/notesSlide2.xml.rels": "d9b0b8b9c1791837bed1ec75969ec1d34486b5e1606a0d739d3c35eeba590d06",
+            "ppt/notesSlides/notesSlide1.xml": "a559bf003438191a2723e887544acb00d550c7a9d8a4fd36a41bd877d46e2be6",
+            "ppt/notesSlides/notesSlide2.xml": "bae0245bfeb4194074a5dfde0aa08b36a6fa527ddcaccca0bdbc37eee8b3a57c",
+            "ppt/presProps.xml": "4446069208ff4cd22879cccdfb0a2a302cb7e572e2c48d00b64066d25f026df1",
+            "ppt/presentation.xml": "920870ce2884511e56fcb51ce80043d8bf6a29834b8a479ebb27555e9cf5e175",
+            "ppt/slideLayouts/_rels/slideLayout1.xml.rels": "8246d333bf3764cd35563e3df1828c26bbc28890815a2987caf3e592791ba60d",
+            "ppt/slideLayouts/slideLayout1.xml": "5015c0989d7672a610fc41c3f7f4a468fc0da42198f06e6c5f20a0921090e1c9",
+            "ppt/slideMasters/_rels/slideMaster1.xml.rels": "066fd8f2e94608804160631c736d82e4c0b0784a1646489030092cc04888839a",
+            "ppt/slideMasters/slideMaster1.xml": "ebd49ca7c690fabf8b16c077711e80f2aa970b1aa2a31090407b2af58cab77c3",
+            "ppt/slides/_rels/slide1.xml.rels": "0b23cddb38fdef417e87301d0a99556bee9c774457bdfb39c2e1c4fe195d6289",
+            "ppt/slides/_rels/slide2.xml.rels": "6665065b4491f2b2c99d56a1ddcfcf498126d75f2e4016f02c454bb603fa36a2",
+            "ppt/slides/slide1.xml": "c8434b7f9e9cb604a5fa01b286c5f8ae027979d11a58a2d2148d9f47e9eb06c3",
+            "ppt/slides/slide2.xml": "27720cc22a220e58d5c2ced1714675b855e7940c745100b0c1ed320b7ee0e93c",
+            "ppt/tableStyles.xml": "0e7ac03251337ecbaf6c8ca13619db1caeda5c90c4e3210d45d6c3f5df4de103",
+            "ppt/theme/theme1.xml": "4c4d228fe0ed2577e90bcda2a7ebdd9c0227d8f84c9777419f2d6b8ccc137dd3",
+            "ppt/viewProps.xml": "4cc12863620049069daeb39b14b4aba98a5e3048318be16a5af5879f6e4b2ac8"
+          }
+        }
+      ]
+    },
+    "word-to-pdf": {
+      "ok": true,
+      "ms": 187,
+      "note": "Text, headings, lists, images & bold/italic kept — complex layout simplified",
+      "outputs": [
+        {
+          "name": "sample-doc.pdf",
+          "kind": "PDF",
+          "size": 8594,
+          "pageCount": 1,
+          "pages": [
+            {
+              "w": 595.28,
+              "h": 841.89
+            }
+          ],
+          "textHash": "357531efe267b12c14149a601d4fb1f6d5702cd2212ad83d2cb04b3669cfb4b8",
+          "sha256": "c17b7382f4bb1549fec0572cecbd95d09400fbc51e15f752deea5e50e47c0eff"
+        }
+      ]
+    },
+    "watermark": {
+      "ok": true,
+      "ms": 128,
+      "note": "\"CONFIDENTIAL\" stamped on every page",
+      "outputs": [
+        {
+          "name": "sample-text-watermarked.pdf",
+          "kind": "PDF",
+          "size": 4793,
+          "pageCount": 3,
+          "pages": [
+            {
+              "w": 595.28,
+              "h": 841.89
+            },
+            {
+              "w": 595.28,
+              "h": 841.89
+            },
+            {
+              "w": 595.28,
+              "h": 841.89
+            }
+          ],
+          "textHash": "3968c1ece453a3466c702b674bc84fe4813270769660e954423fd32d8869308c",
+          "sha256": "8a881fe91b9ebd3b53aaa7f9ee7caf5bd4f373adc6d8b1c87ba631bc375e6daa"
+        }
+      ]
+    },
+    "page-numbers": {
+      "ok": true,
+      "ms": 123,
+      "note": "Numbers placed",
+      "outputs": [
+        {
+          "name": "sample-text-numbered.pdf",
+          "kind": "PDF",
+          "size": 4544,
+          "pageCount": 3,
+          "pages": [
+            {
+              "w": 595.28,
+              "h": 841.89
+            },
+            {
+              "w": 595.28,
+              "h": 841.89
+            },
+            {
+              "w": 595.28,
+              "h": 841.89
+            }
+          ],
+          "textHash": "617a0c1d8a5edd3f87e17b8790b0c3931079b883e28e25cc77b5ca29f218beb7",
+          "sha256": "6bd3c5d462238f8ab9fcdad79bc0fdd1965653f97aa0208ba0a59a14cef8b3b2"
+        }
+      ]
+    },
+    "crop": {
+      "ok": true,
+      "ms": 122,
+      "note": "Crop box applied to all pages",
+      "outputs": [
+        {
+          "name": "sample-text-cropped.pdf",
+          "kind": "PDF",
+          "size": 3848,
+          "pageCount": 3,
+          "pages": [
+            {
+              "w": 535.75,
+              "h": 757.7
+            },
+            {
+              "w": 535.75,
+              "h": 757.7
+            },
+            {
+              "w": 535.75,
+              "h": 757.7
+            }
+          ],
+          "textHash": "2bec1a2bfa6dc2715bf413d9b0b64f153a382f4379ef748b06f14794dc702a53",
+          "sha256": "65e138e7d45bdc638673d077d4c6f4e32dc428f61a9feebd243c2d80de92fd0c"
+        }
+      ]
+    },
+    "protect": {
+      "ok": true,
+      "ms": 554,
+      "note": "Password set — keep it safe, it cannot be recovered",
+      "outputs": [
+        {
+          "name": "sample-text-protected.pdf",
+          "kind": "PDF",
+          "size": 6102,
+          "pageCount": 3,
+          "pages": [
+            {
+              "w": 595.28,
+              "h": 841.89
+            },
+            {
+              "w": 595.28,
+              "h": 841.89
+            },
+            {
+              "w": 595.28,
+              "h": 841.89
+            }
+          ],
+          "textHash": "2bec1a2bfa6dc2715bf413d9b0b64f153a382f4379ef748b06f14794dc702a53",
+          "sha256": "b66a0d7caacceb8f1a89393d180f09a5e3139a8c706d939adc3e14e9981fe166"
+        }
+      ]
+    },
+    "unlock": {
+      "ok": true,
+      "ms": 198,
+      "note": "Password removed from the saved copy",
+      "outputs": [
+        {
+          "name": "sample-encrypted-unlocked.pdf",
+          "kind": "PDF",
+          "size": 1778,
+          "pageCount": 1,
+          "pages": [
+            {
+              "w": 595.28,
+              "h": 841.89
+            }
+          ],
+          "textHash": "01669db2ba4c606993355633f5be4986aa138250921f72f0ccafa933210b1023",
+          "sha256": "99a4cec40fd63fe65ba7425e0607a00ae1686b921cee65733dc286fababf9fb9"
+        }
+      ]
+    }
+  }
+}
