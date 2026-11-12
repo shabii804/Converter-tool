@@ -8,6 +8,7 @@ import { useCopy } from "@/lib/i18n-hooks";
 import { ToolCard } from "@/components/kit/tool-card";
 import { Tabs } from "@/components/kit/tabs";
 import { categoryMeta } from "@/components/kit/category";
+import { iconTileSurface } from "@/components/kit/icon-tile";
 import { Button } from "@/components/kit/button";
 import { Search, X, SearchX } from "lucide-react";
 
@@ -119,10 +120,10 @@ export function ToolGrid() {
                 >
                   <span
                     className="flex size-7 items-center justify-center rounded-[9px]"
-                    style={{ background: `var(${meta.tintVar})`, color: `var(${meta.accentVar})` }}
+                    style={iconTileSurface(meta)}
                     aria-hidden="true"
                   >
-                    <tool.icon className="size-3.5" />
+                    <tool.icon className="size-3.5" strokeWidth={2.2} style={{ color: `var(${meta.accentVar})` }} />
                   </span>
                   <span className="whitespace-nowrap text-[13px] font-semibold">{tool.name}</span>
                 </button>
