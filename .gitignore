@@ -7,3 +7,7 @@ tests/baseline/harness/harness.js
 tests/toolcheck/harness/harness.js
 tsconfig.tsbuildinfo
 *.tsbuildinfo
+
+# conversion QA generated outputs
+tests/conv/out/
+tests/conv/*.js
