@@ -944,7 +944,7 @@ async function runPageNumbers(
   opts: PageNumberOptions,
   cb: RunCallbacks
 ): Promise<EngineResult> {
-  const { PDFDocument, StandardFonts } = await getPdfLib();
+  const { PDFDocument, StandardFonts, degrees } = await getPdfLib();
   const outFiles: EngineResult["files"] = [];
 
   for (let i = 0; i < entries.length; i++) {
@@ -965,15 +965,51 @@ async function runPageNumbers(
             ? `Page ${num}`
             : `${num} / ${opts.startAt + total - 1}`;
       const page = pages[p - 1];
-      const { width, height } = page.getSize();
+      /* position the number on the page the viewer SHOWS: respect the
+         visible box (crop || media, incl. non-zero origins) and /Rotate,
+         drawing the text rotated so it reads upright. */
+      const base = page.getCropBox();
+      const W = base.width;
+      const H = base.height;
+      const rot = ((page.getRotation().angle % 360) + 360) % 360;
+      const swap = rot === 90 || rot === 270;
+      const Dw = swap ? H : W;
+      const Dh = swap ? W : H;
       const tw = font.widthOfTextAtSize(label, opts.fontSize);
       const M = 28;
-      let x = (width - tw) / 2;
-      let y = M;
-      if (opts.position.endsWith("right")) x = width - M - tw;
-      if (opts.position.endsWith("left")) x = M;
-      if (opts.position.startsWith("top")) y = height - M - opts.fontSize;
-      page.drawText(label, { x, y, size: opts.fontSize, font });
+      let dx = (Dw - tw) / 2;
+      if (opts.position.endsWith("right")) dx = Dw - M - tw;
+      if (opts.position.endsWith("left")) dx = M;
+      const dyBottom = opts.position.startsWith("top")
+        ? Dh - M - opts.fontSize
+        : M;
+      const dyTop = Dh - dyBottom;
+      let xu: number;
+      let yu: number;
+      switch (rot) {
+        case 90:
+          xu = dyTop;
+          yu = dx;
+          break;
+        case 180:
+          xu = W - dx;
+          yu = H - dyTop;
+          break;
+        case 270:
+          xu = W - dyTop;
+          yu = H - dx;
+          break;
+        default:
+          xu = dx;
+          yu = H - dyTop;
+      }
+      page.drawText(label, {
+        x: base.x + xu,
+        y: base.y + yu,
+        size: opts.fontSize,
+        font,
+        rotate: degrees(rot),
+      });
     }
     const blob = new Blob([await doc.save()], { type: "application/pdf" });
     outFiles.push({
