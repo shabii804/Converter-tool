@@ -511,6 +511,7 @@ async function runPdfToWord(
     PageBreak,
     Tab,
     TabStopType,
+    LineRuleType,
   } = await import("docx");
   const outFiles: EngineResult["files"] = [];
 
@@ -722,7 +723,13 @@ async function runPdfToWord(
     const doc = await openWithPdfjs(bytes);
     const n = doc.numPages;
     const children: any[] = [];
-    let pageProps: any = null;
+
+    /* pass 1 — visual lines for every page. Margins are measured across the
+       whole document, so the extractor needs every page's lines up front. */
+    const pagesLines: Line[][] = [];
+    const pagesW: number[] = [];
+    let pageW = 0;
+    let pageH = 0;
 
     for (let p = 1; p <= n; p++) {
       const page = await doc.getPage(p);
@@ -732,8 +739,12 @@ async function runPdfToWord(
       } catch {
         /* rendering not required for text extraction */
       }
-      const pageW = page.getViewport({ scale: 1 }).width;
-      const pageH = page.getViewport({ scale: 1 }).height;
+      const vp = page.getViewport({ scale: 1 });
+      if (p === 1) {
+        pageW = vp.width;
+        pageH = vp.height;
+      }
+      pagesW.push(vp.width);
 
       const parts: Part[] = [];
       for (const item of tc.items as any[]) {
@@ -768,23 +779,68 @@ async function runPdfToWord(
         }
       }
       lines.sort((a, b) => b.y - a.y);
+      pagesLines.push(lines);
 
-      if (!pageProps) {
-        const topLine = Math.max(...lines.map((l) => l.y + l.size));
-        const leftT = 1440;
-        const rightT = 1440;
-        pageProps = {
-          page: {
-            size: { width: Math.round(pageW * 20), height: Math.round(pageH * 20) },
-            margin: {
-              top: Math.min(2160, Math.max(720, Math.round((pageH - topLine) * 20))),
-              right: rightT,
-              bottom: 1440,
-              left: leftT,
-            },
-          },
-        };
+      cb.onStatus?.(`Reading page ${p}/${n}`);
+      cb.onFileProgress?.(entries[i].id, (p / n) * 0.45);
+      cb.onOverall?.(((i + (p / n) * 0.45) / entries.length) * 0.92);
+      await tick();
+    }
+
+    /* The Word section adopts the PDF's real text margins, measured across
+       every page. The old extractor hardcoded 1-inch Word margins, so the
+       text area no longer matched the PDF column: every line shifted and
+       wrapped at different words. With measured margins the column width
+       matches and lines break exactly where the PDF breaks them. */
+    const flat = pagesLines.flat();
+    let pageProps: any = null;
+    let pageLeftPt: number | null = null;
+    if (flat.length && pageW) {
+      /* left margin = text-weighted mode of line starts: each line votes
+         with its character count, so a table with many short cells cannot
+         outvote the body text for the margin */
+      const leftSide = flat.filter((l) => l.x0 < pageW * 0.5);
+      if (leftSide.length) {
+        const weight = new Map<number, number>();
+        for (const l of leftSide) {
+          const k = Math.round(l.x0);
+          weight.set(k, (weight.get(k) ?? 0) + l.text.length);
+        }
+        let best = Math.round(leftSide[0].x0);
+        let bestW = -1;
+        for (const [k, w] of weight)
+          if (w > bestW || (w === bestW && k < best)) {
+            best = k;
+            bestW = w;
+          }
+        pageLeftPt = best;
+      } else {
+        pageLeftPt = Math.min(...flat.map((l) => l.x0));
       }
+      const rightEdge = Math.max(...flat.map((l) => l.x1));
+      const firstPage = pagesLines[0];
+      const topLine = firstPage.length
+        ? Math.max(...firstPage.map((l) => l.y + l.size))
+        : pageH - 72;
+      pageProps = {
+        page: {
+          size: { width: Math.round(pageW * 20), height: Math.round(pageH * 20) },
+          margin: {
+            top: Math.min(2160, Math.max(720, Math.round((pageH - topLine) * 20))),
+            right: Math.min(
+              2160,
+              Math.max(360, Math.round((pageW - rightEdge) * 20))
+            ),
+            bottom: 1440,
+            left: Math.min(2160, Math.max(360, Math.round(pageLeftPt * 20))),
+          },
+        },
+      };
+    }
+
+    /* pass 2 — paragraphs, alignment and spacing per page */
+    for (let p = 1; p <= n; p++) {
+      const lines = pagesLines[p - 1];
 
       if (p > 1 && children.length)
         children.push(
@@ -792,7 +848,7 @@ async function runPdfToWord(
         );
 
       if (lines.length) {
-        for (const group of detectColumns(lines, pageW)) {
+        for (const group of detectColumns(lines, pagesW[p - 1])) {
           const m = classify(group, pageW);
           /* group lines into paragraphs */
           const paras: Line[][] = [];
@@ -839,7 +895,10 @@ async function runPdfToWord(
               : undefined;
 
             /* tab stops from wide gaps (reconstructed table columns) —
-               positions are relative to the paragraph's left edge */
+               OOXML tab positions are measured from the left text margin,
+               so they land at the PDF x position only when the base is the
+               measured page margin (not the paragraph's own left edge) */
+            const marginLeftPt = pageLeftPt ?? m.leftMargin;
             const tabs: any[] = [];
             for (const line of para) {
               let prevEnd: number | null = null;
@@ -853,19 +912,26 @@ async function runPdfToWord(
                     type: TabStopType.LEFT,
                     position: Math.max(
                       240,
-                      Math.round((pt.x - para[0].x0) * 20)
+                      Math.round((pt.x - marginLeftPt) * 20)
                     ),
                   });
                 prevEnd = pt.x + pt.w;
               }
             }
 
-            /* indent: paragraph starts right of the margin */
+            /* indent: paragraph starts right of the page's text margin —
+               also carries a detected second column to its own x position.
+               Centered and right-aligned paragraphs are skipped: their x
+               position is produced by the alignment, an indent would just
+               shove them off-centre */
             const minX0 = Math.min(...para.map((l) => l.x0));
-            const overhang = minX0 - m.leftMargin;
+            const overhang = minX0 - marginLeftPt;
             const indent =
-              !isBullet && overhang > first.size * 1.2
-                ? { left: Math.min(2880, Math.max(240, Math.round(overhang * 20))) }
+              !isBullet &&
+              !first.centered &&
+              !first.rightAligned &&
+              overhang > first.size * 1.2
+                ? { left: Math.min(5760, Math.max(240, Math.round(overhang * 20))) }
                 : undefined;
 
             const docRuns = runs.map((r) =>
@@ -884,6 +950,23 @@ async function runPdfToWord(
                   })
             );
 
+            /* keep the PDF's vertical rhythm: the measured baseline pitch
+               becomes an exact Word line height, so multi-line paragraphs
+               fill the page the same way instead of drifting */
+            const gaps: number[] = [];
+            for (let li = 1; li < para.length; li++)
+              gaps.push(para[li - 1].y - para[li].y);
+            gaps.sort((a, b) => a - b);
+            const pitch = gaps.length ? gaps[Math.floor(gaps.length / 2)] : 0;
+            const spacing: any = heading
+              ? { before: 240, after: 120 }
+              : isBullet
+              ? { after: 60 }
+              : { after: 120 };
+            if (pitch > first.size * 0.9 && pitch < first.size * 3.4)
+              spacing.line = Math.max(120, Math.round(pitch * 20));
+            if (spacing.line) spacing.lineRule = LineRuleType.AT_LEAST;
+
             children.push(
               new Paragraph({
                 heading: heading
@@ -897,11 +980,7 @@ async function runPdfToWord(
                 bullet: isBullet ? { level: 0 } : undefined,
                 indent,
                 tabStops: tabs.length ? tabs : undefined,
-                spacing: heading
-                  ? { before: 240, after: 120 }
-                  : isBullet
-                  ? { after: 60 }
-                  : { after: 120 },
+                spacing,
                 children: docRuns,
               })
             );
@@ -909,9 +988,9 @@ async function runPdfToWord(
         }
       }
 
-      cb.onStatus?.(`Extracting page ${p}/${n}`);
-      cb.onFileProgress?.(entries[i].id, p / n);
-      cb.onOverall?.(((i + p / n) / entries.length) * 0.92);
+      cb.onStatus?.(`Building page ${p}/${n}`);
+      cb.onFileProgress?.(entries[i].id, 0.45 + (0.55 * p) / n);
+      cb.onOverall?.(((i + 0.45 + (0.55 * p) / n) / entries.length) * 0.92);
       await tick();
     }
 
@@ -932,7 +1011,7 @@ async function runPdfToWord(
   cb.onOverall?.(1);
   return {
     files: outFiles,
-    note: "Text layer extracted — scanned PDFs have no text layer",
+    note: "Text extracted — scanned PDFs have no text layer; complex layouts are approximated",
   };
 }
 
