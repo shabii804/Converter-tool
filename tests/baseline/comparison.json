@@ -1,9 +1,10 @@
 {
   "runA": "run-1",
-  "runB": "run-11",
-  "passed": 16,
-  "failed": 2,
+  "runB": "run-12",
+  "passed": 15,
+  "failed": 3,
   "failedTools": [
+    "pdf-to-word",
     "word-to-pdf",
     "watermark"
   ],
