@@ -1,5 +1,8 @@
 "use client";
 
+/* must run before any pdf.js code in this bundle (older-browser shims) */
+import "@/lib/compat-shims";
+
 /**
  * AppShell — the SPA chrome + view machine shared by the home route (/)
  * and the per-tool deep links (/tool/[id]). With a deepLinkToolId, the

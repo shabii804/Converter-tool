@@ -1,3 +1,37 @@
+/* swiftpdf-compat-shims v1 */
+(() => {
+  const defineOnce = (holder, name, value) => {
+    if (!Object.prototype.hasOwnProperty.call(holder, name)) {
+      Object.defineProperty(holder, name, { value, writable: true, configurable: true, enumerable: false });
+    }
+  };
+  defineOnce(Map.prototype, "getOrInsert", function (key, value) {
+    if (!this.has(key)) this.set(key, value);
+    return this.get(key);
+  });
+  defineOnce(Map.prototype, "getOrInsertComputed", function (key, cb) {
+    if (!this.has(key)) this.set(key, cb(key));
+    return this.get(key);
+  });
+  defineOnce(WeakMap.prototype, "getOrInsert", function (key, value) {
+    if (!this.has(key)) this.set(key, value);
+    return this.get(key);
+  });
+  defineOnce(WeakMap.prototype, "getOrInsertComputed", function (key, cb) {
+    if (!this.has(key)) this.set(key, cb(key));
+    return this.get(key);
+  });
+  if (!Object.prototype.hasOwnProperty.call(Promise, "withResolvers")) {
+    Object.defineProperty(Promise, "withResolvers", {
+      value: function withResolvers() {
+        let resolve, reject;
+        const promise = new Promise((res, rej) => { resolve = res; reject = rej; });
+        return { promise, resolve, reject };
+      },
+      writable: true, configurable: true, enumerable: false,
+    });
+  }
+})();
 /**
  * @licstart The following is the entire license notice for the
  * JavaScript code in this page

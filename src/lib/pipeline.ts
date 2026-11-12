@@ -1,3 +1,5 @@
+/* must run before the engines import pdf.js (older-browser shims) */
+import "./compat-shims";
 import { useStore } from "./store";
 import { runTool, type EngineResult } from "./pdf-engine";
 import { toast } from "sonner";
