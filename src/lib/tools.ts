@@ -31,6 +31,7 @@ import {
   FileCog,
   QrCode,
   ScanText,
+  IdCard,
 } from "lucide-react";
 
 export type ToolCategory = "core" | "convert" | "edit" | "security";
@@ -514,6 +515,21 @@ export const TOOLS: ToolDef[] = [
     minFiles: 1,
     maxFiles: 5,
     input: "pdf",
+  },
+  {
+    id: "id-photo",
+    name: "ID Photo",
+    tagline: "Passport-size crop & print sheet",
+    description:
+      "Crop a photo to standard ID photo sizes at 300 DPI and lay out a 10×15 cm print sheet — ready to print at home. You align the crop; there is no face detection.",
+    keywords: "id photo passport visa crop print sheet portrait headshot document",
+    badge: "New",
+    category: "convert",
+    icon: IdCard,
+    accept: "image/*",
+    minFiles: 1,
+    maxFiles: 5,
+    input: "image",
   },
 ];
 

@@ -1631,6 +1631,154 @@ async function runOcr(
 }
 
 /* ================================================================
+   12) ID PHOTO — crop to standard sizes at 300 DPI + print sheet
+   ================================================================ */
+
+export interface IdPhotoOptions {
+  preset: "p35x45" | "p51x51" | "p33x48" | "p30x40";
+  /** 1 = cover fit, >1 zooms in */
+  zoom: number;
+  /** -1..1 pan within the crop, fraction of the overflow */
+  offsetX: number;
+  offsetY: number;
+  /** background painted behind transparent areas (hex) */
+  bg: string;
+  /** also emit a 10×15 cm sheet with as many copies as fit */
+  sheet: boolean;
+}
+
+const ID_PRESETS = {
+  "p35x45": { w: 35, h: 45, label: "35 × 45 mm" },
+  "p51x51": { w: 51, h: 51, label: "51 × 51 mm" },
+  "p33x48": { w: 33, h: 48, label: "33 × 48 mm" },
+  "p30x40": { w: 30, h: 40, label: "30 × 40 mm" },
+} as const;
+
+const ID_PRINT_DPI = 300;
+const mmToPx = (mm: number) => Math.round((mm / 25.4) * ID_PRINT_DPI);
+const mmToPt = (mm: number) => (mm * 72) / 25.4;
+
+/** shared crop math — also used by the live preview in the workspace */
+export function idPhotoCropRect(
+  srcW: number,
+  srcH: number,
+  cropW: number,
+  cropH: number,
+  zoom: number,
+  offsetX: number,
+  offsetY: number
+) {
+  const s = Math.max(cropW / srcW, cropH / srcH) * Math.max(1, zoom);
+  const dw = srcW * s;
+  const dh = srcH * s;
+  const maxX = Math.max(0, (dw - cropW) / 2);
+  const maxY = Math.max(0, (dh - cropH) / 2);
+  const clamp = (v: number, m: number) => Math.min(m, Math.max(-m, v));
+  const dx = clamp((cropW - dw) / 2 + offsetX * maxX, maxX);
+  const dy = clamp((cropH - dh) / 2 + offsetY * maxY, maxY);
+  return { scale: s, dx, dy, dw, dh };
+}
+
+async function runIdPhoto(
+  entries: { id: string; file: File }[],
+  opts: IdPhotoOptions,
+  cb: RunCallbacks
+): Promise<EngineResult> {
+  const p = ID_PRESETS[opts.preset] ?? ID_PRESETS["p35x45"];
+  const cw = mmToPx(p.w);
+  const ch = mmToPx(p.h);
+  const outFiles: EngineResult["files"] = [];
+
+  for (let i = 0; i < entries.length; i++) {
+    const { id, file } = entries[i];
+    const bmp = await decodeImage(file);
+    assertPixels(bmp.width, bmp.height, file.name);
+
+    const { dx, dy, dw, dh } = idPhotoCropRect(
+      bmp.width,
+      bmp.height,
+      cw,
+      ch,
+      opts.zoom || 1,
+      opts.offsetX || 0,
+      opts.offsetY || 0
+    );
+
+    const canvas = document.createElement("canvas");
+    canvas.width = cw;
+    canvas.height = ch;
+    const ctx = canvas.getContext("2d")!;
+    ctx.fillStyle = opts.bg || "#ffffff";
+    ctx.fillRect(0, 0, cw, ch);
+    ctx.drawImage(bmp, dx, dy, dw, dh);
+    const jpg = await canvasToBlob(canvas, "image/jpeg", 0.95);
+    bmp.close?.();
+
+    const { PDFDocument, rgb } = await getPdfLib();
+    const doc = await PDFDocument.create();
+
+    // page 1 — the photo at its exact physical size (prints 1:1)
+    const img = await doc.embedJpg(new Uint8Array(await jpg.arrayBuffer()));
+    const pw = mmToPt(p.w);
+    const ph = mmToPt(p.h);
+    doc.addPage([pw, ph]).drawImage(img, {
+      x: 0,
+      y: 0,
+      width: pw,
+      height: ph,
+    });
+
+    // page 2 (optional) — 10×15 cm sheet with as many copies as fit
+    if (opts.sheet) {
+      const SW = mmToPt(100);
+      const SH = mmToPt(150);
+      const gap = mmToPt(3);
+      const cols = Math.max(1, Math.floor((SW + gap) / (pw + gap)));
+      const rows = Math.max(1, Math.floor((SH + gap) / (ph + gap)));
+      const gridW = cols * pw + (cols - 1) * gap;
+      const gridH = rows * ph + (rows - 1) * gap;
+      const startX = (SW - gridW) / 2;
+      const startY = (SH - gridH) / 2;
+      const page = doc.addPage([SW, SH]);
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const x = startX + c * (pw + gap);
+          const y = SH - startY - (r + 1) * ph - r * gap;
+          page.drawImage(img, { x, y, width: pw, height: ph });
+          page.drawRectangle({
+            x: x - 1,
+            y: y - 1,
+            width: pw + 2,
+            height: ph + 2,
+            borderWidth: 0.4,
+            borderColor: rgb(0.72, 0.73, 0.76),
+            borderDashArray: [2, 2],
+          });
+        }
+      }
+    }
+
+    const saved = await doc.save({ useObjectStreams: true });
+    const blob = pdfBlob(saved);
+    outFiles.push({
+      name: `${baseName(file.name)}-id-${p.w}x${p.h}mm.pdf`,
+      blob,
+      size: blob.size,
+      kind: "PDF",
+    });
+    cb.onFileProgress?.(id, (i + 1) / entries.length);
+    cb.onOverall?.((i + 1) / entries.length);
+    await tick();
+  }
+  cb.onOverall?.(1);
+
+  return {
+    files: outFiles,
+    note: `${p.label} photo at 300 DPI · print at 100% scale (“Actual size”) for exact dimensions${opts.sheet ? " · the sheet fits 10×15 cm paper with cut guides" : ""}`,
+  };
+}
+
+/* ================================================================
    DISPATCHER
    ================================================================ */
 
@@ -1650,6 +1798,7 @@ export const EXTRA_TOOL_IDS = [
   "edit-metadata",
   "qr-to-pdf",
   "ocr",
+  "id-photo",
 ] as const;
 
 export type ExtraToolId = (typeof EXTRA_TOOL_IDS)[number];
@@ -1695,6 +1844,8 @@ export async function runExtraTool(
       return runQrToPdf(entries, opts, cb);
     case "ocr":
       return runOcr(entries, opts, cb);
+    case "id-photo":
+      return runIdPhoto(entries, opts, cb);
     default:
       throw new Error("Unknown tool");
   }
