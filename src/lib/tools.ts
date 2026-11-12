@@ -27,6 +27,7 @@ import {
   Text,
   Type,
   EyeOff,
+  Layers,
 } from "lucide-react";
 
 export type ToolCategory = "core" | "convert" | "edit" | "security";
@@ -450,6 +451,21 @@ export const TOOLS: ToolDef[] = [
     minFiles: 0,
     maxFiles: 0,
     input: "none",
+  },
+  {
+    id: "flatten",
+    name: "Flatten PDF",
+    tagline: "One flat, untouchable layer",
+    description:
+      "Bake every page into a flat image layer — annotations and form fields become permanent and text is no longer selectable.",
+    keywords: "flatten rasterize merge layers annotation form lock permanent",
+    badge: "New",
+    category: "edit",
+    icon: Layers,
+    accept: "application/pdf",
+    minFiles: 1,
+    maxFiles: 10,
+    input: "pdf",
   },
 ];
 

@@ -116,6 +116,8 @@ interface Options {
   // annotation editor (edit-pdf / sign-pdf / redact-pdf)
   editorOpts: Record<string, unknown>;
   editorCount: number;
+  // flatten
+  flattenQuality: "standard" | "high" | "lossless";
 }
 
 const defaultOptions = (): Options => ({
@@ -171,6 +173,7 @@ const defaultOptions = (): Options => ({
   ttfCustomFont: null,
   editorOpts: {},
   editorCount: 0,
+  flattenQuality: "high",
 });
 
 /** Friendly large-file threshold (honest copy, no fake limits). */
@@ -574,6 +577,8 @@ function buildOptions(
     case "sign-pdf":
     case "redact-pdf":
       return opts.editorOpts;
+    case "flatten":
+      return { quality: opts.flattenQuality };
     default:
       return {};
   }
@@ -1413,6 +1418,27 @@ function OptionsPanel({
           Add a PDF on the left, then draw black boxes over the text you want
           permanently removed.
         </p>
+      );
+
+    case "flatten":
+      return (
+        <div className="space-y-5">
+          <SegButtons
+            value={opts.flattenQuality}
+            onChange={(v) => set("flattenQuality", v as Options["flattenQuality"])}
+            options={[
+              { v: "standard", label: "Standard · smaller file" },
+              { v: "high", label: "High · recommended" },
+              { v: "lossless", label: "Lossless PNG · largest" },
+            ]}
+          />
+          <p className="text-[13px] leading-relaxed text-fg-faint">
+            Flattening re-renders each page as an image. Text can no longer be
+            selected or searched, form fields stop being editable and anything
+            layered on top is baked in permanently. File size grows — the High
+            setting is a good balance.
+          </p>
+        </div>
       );
 
     default:

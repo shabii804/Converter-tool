@@ -1246,6 +1246,73 @@ async function runRedact(
 }
 
 /* ================================================================
+   8) FLATTEN PDF — rasterize pages into one permanent layer
+   ================================================================ */
+
+export interface FlattenOptions {
+  quality: "standard" | "high" | "lossless";
+}
+
+const FLATTEN_MODES = {
+  standard: { scale: 1.5, type: "image/jpeg", quality: 0.85, label: "1.5× · JPG 85%" },
+  high: { scale: 2.0, type: "image/jpeg", quality: 0.92, label: "2× · JPG 92%" },
+  lossless: { scale: 2.0, type: "image/png", quality: undefined as number | undefined, label: "2× · PNG lossless" },
+} as const;
+
+async function runFlatten(
+  entries: { id: string; file: File }[],
+  opts: FlattenOptions,
+  cb: RunCallbacks
+): Promise<EngineResult> {
+  const mode = FLATTEN_MODES[opts.quality] ?? FLATTEN_MODES.high;
+  const outFiles: EngineResult["files"] = [];
+  let pages = 0;
+
+  for (let i = 0; i < entries.length; i++) {
+    const { id, file } = entries[i];
+    const bytes = await fileToBytes(file);
+    const doc = await tryOpenWithPdfjs(bytes, file.name);
+    const n = doc.numPages;
+    const { PDFDocument } = await getPdfLib();
+    const out = await PDFDocument.create();
+
+    for (let p = 1; p <= n; p++) {
+      const page = await doc.getPage(p);
+      const v1 = page.getViewport({ scale: 1 });
+      const canvas = await renderPageToCanvas(doc, p, mode.scale);
+      const blob = await canvasToBlob(canvas, mode.type, mode.quality);
+      const imgBytes = new Uint8Array(await blob.arrayBuffer());
+      const img =
+        mode.type === "image/png"
+          ? await out.embedPng(imgBytes)
+          : await out.embedJpg(imgBytes);
+      const outPage = out.addPage([v1.width, v1.height]);
+      outPage.drawImage(img, { x: 0, y: 0, width: v1.width, height: v1.height });
+      pages++;
+      cb.onStatus?.(`Flattening page ${p}/${n}`);
+      cb.onFileProgress?.(id, p / n);
+      cb.onOverall?.(((i + p / n) / entries.length) * 0.95);
+      await tick();
+    }
+
+    const saved = await out.save({ useObjectStreams: true });
+    const blob = pdfBlob(saved);
+    outFiles.push({
+      name: `${baseName(file.name)}-flattened.pdf`,
+      blob,
+      size: blob.size,
+      kind: "PDF",
+    });
+    cb.onFileProgress?.(id, 1);
+  }
+  cb.onOverall?.(1);
+  return {
+    files: outFiles,
+    note: `${pages} page(s) rasterized (${mode.label}) — text is no longer selectable and annotations are baked in`,
+  };
+}
+
+/* ================================================================
    DISPATCHER
    ================================================================ */
 
@@ -1261,6 +1328,7 @@ export const EXTRA_TOOL_IDS = [
   "extract-text",
   "text-to-pdf",
   "redact-pdf",
+  "flatten",
 ] as const;
 
 export type ExtraToolId = (typeof EXTRA_TOOL_IDS)[number];
@@ -1298,6 +1366,8 @@ export async function runExtraTool(
       return runApplyAnnotations(entries, opts, cb, "sign");
     case "redact-pdf":
       return runRedact(entries, opts, cb);
+    case "flatten":
+      return runFlatten(entries, opts, cb);
     default:
       throw new Error("Unknown tool");
   }
