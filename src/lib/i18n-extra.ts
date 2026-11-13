@@ -169,6 +169,8 @@ const pt: Copy = {
     bottom: "100% no navegador · nenhum rastreamento do conteúdo · funciona offline",
     language: "Idioma",
     allTools: "Todas as ferramentas",
+    privacy: "Privacidade",
+    terms: "Termos de serviço",
   },
   related: {
     title: "Ferramentas relacionadas",
@@ -344,6 +346,8 @@ const hi: Copy = {
     bottom: "100% ब्राउज़र में · कंटेंट ट्रैकिंग नहीं · ऑफ़लाइन चलता है",
     language: "भाषा",
     allTools: "सभी टूल्स",
+    privacy: "गोपनीयता नीति",
+    terms: "सेवा की शर्तें",
   },
   related: {
     title: "संबंधित टूल्स",
@@ -519,6 +523,8 @@ const ur: Copy = {
     bottom: "100% براؤزر میں · مواد کی کوئی ٹریکنگ نہیں · آف لائن چلتا ہے",
     language: "زبان",
     allTools: "تمام ٹولز",
+    privacy: "پرائیویسی پالیسی",
+    terms: "سروس کی شرائط",
   },
   related: {
     title: "متعلقہ ٹولز",
@@ -694,6 +700,8 @@ const ar: Copy = {
     bottom: "100% في المتصفح · لا تتبع للمحتوى · تعمل دون اتصال",
     language: "اللغة",
     allTools: "كل الأدوات",
+    privacy: "سياسة الخصوصية",
+    terms: "شروط الخدمة",
   },
   related: {
     title: "أدوات ذات صلة",

@@ -202,6 +202,8 @@ const en = {
     bottom: "100% in-browser · no file contents tracked · works offline",
     language: "Language",
     allTools: "All tools",
+    privacy: "Privacy policy",
+    terms: "Terms of service",
   },
   related: {
     title: "Related tools",
@@ -379,6 +381,8 @@ const es: Copy = {
     bottom: "100% en el navegador · sin rastreo del contenido · funciona sin conexión",
     language: "Idioma",
     allTools: "Todas las herramientas",
+    privacy: "Política de privacidad",
+    terms: "Términos del servicio",
   },
   related: {
     title: "Herramientas relacionadas",
@@ -554,6 +558,8 @@ const fr: Copy = {
     bottom: "100 % dans le navigateur · aucun suivi du contenu · fonctionne hors ligne",
     language: "Langue",
     allTools: "Tous les outils",
+    privacy: "Confidentialité",
+    terms: "Conditions d'utilisation",
   },
   related: {
     title: "Outils associés",

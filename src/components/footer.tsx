@@ -9,7 +9,7 @@ import { useCopy, useLocale, useLocaleHref } from "@/lib/i18n-hooks";
 import { useToolNav } from "@/lib/use-tool-nav";
 import { InstallAppButton } from "./install-prompt";
 import { Logo } from "./logo";
-import { ArrowRight, ShieldCheck } from "lucide-react";
+import { ArrowRight, Github, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const CAT_ORDER: ToolCategory[] = ["core", "convert", "edit", "security"];
@@ -96,9 +96,21 @@ export function Footer() {
               </span>
             </div>
             <p className="mt-3 max-w-xs text-[13px] leading-relaxed text-fg-muted">{t.footer.tagline}</p>
-            <div className="mt-4 inline-flex items-center gap-1.5 rounded-chip border border-success/25 bg-success/10 px-3 py-1.5">
-              <ShieldCheck className="size-3.5 text-success" aria-hidden="true" />
-              <span className="text-micro font-semibold text-success">{t.nav.privacy}</span>
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <div className="inline-flex items-center gap-1.5 rounded-chip border border-success/25 bg-success/10 px-3 py-1.5">
+                <ShieldCheck className="size-3.5 text-success" aria-hidden="true" />
+                <span className="text-micro font-semibold text-success">{t.nav.privacy}</span>
+              </div>
+              {/* the one real presence — the open-source repo */}
+              <a
+                href="https://github.com/shabii804/Converter-tool"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="SwiftPDF on GitHub"
+                className="flex size-11 items-center justify-center rounded-chip border border-border-subtle text-fg-muted outline-none transition-colors hover:border-border-strong hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <Github className="size-4" aria-hidden="true" />
+              </a>
             </div>
             <LangGroup className="mt-8 hidden lg:block" />
           </div>
@@ -195,6 +207,22 @@ export function Footer() {
           <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-6 text-micro text-fg-faint sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
               <p>{t.footer.copyright}</p>
+              {/* legal — real pages under the current locale */}
+              <div className="flex items-center gap-2">
+                <Link
+                  href={localeHref("/privacy")}
+                  className="rounded-control px-0 underline-offset-4 outline-none transition-colors hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {t.footer.privacy}
+                </Link>
+                <span aria-hidden="true">·</span>
+                <Link
+                  href={localeHref("/terms")}
+                  className="rounded-control px-0 underline-offset-4 outline-none transition-colors hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {t.footer.terms}
+                </Link>
+              </div>
               <InstallAppButton />
             </div>
             <p>{t.footer.bottom}</p>
