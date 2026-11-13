@@ -93,6 +93,12 @@ const CASES = [
     name: "fixture-doc.docx",
     opts: { pageSize: "a4" },
   },
+  {
+    id: "pdf-to-word",
+    fixture: "fixture-image.pdf",
+    name: "fixture-image.pdf",
+    opts: {},
+  },
 ];
 
 for (const c of CASES) {
