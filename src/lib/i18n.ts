@@ -192,6 +192,8 @@ const en = {
     how: "How it works",
     copyright: "© 2026 SwiftPDF. Local-first by design.",
     bottom: "100% in-browser · no file contents tracked · works offline",
+    language: "Language",
+    allTools: "All tools",
   },
   related: {
     title: "Related tools",
@@ -359,6 +361,8 @@ const es: Copy = {
     how: "Cómo funciona",
     copyright: "© 2026 SwiftPDF. Local primero, por diseño.",
     bottom: "100% en el navegador · sin rastreo del contenido · funciona sin conexión",
+    language: "Idioma",
+    allTools: "Todas las herramientas",
   },
   related: {
     title: "Herramientas relacionadas",
@@ -524,6 +528,8 @@ const fr: Copy = {
     how: "Comment ça marche",
     copyright: "© 2026 SwiftPDF. Local d'abord, par conception.",
     bottom: "100 % dans le navigateur · aucun suivi du contenu · fonctionne hors ligne",
+    language: "Langue",
+    allTools: "Tous les outils",
   },
   related: {
     title: "Outils associés",

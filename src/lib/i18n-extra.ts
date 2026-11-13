@@ -159,6 +159,8 @@ const pt: Copy = {
     how: "Como funciona",
     copyright: "© 2026 SwiftPDF. Local primeiro, por design.",
     bottom: "100% no navegador · nenhum rastreamento do conteúdo · funciona offline",
+    language: "Idioma",
+    allTools: "Todas as ferramentas",
   },
   related: {
     title: "Ferramentas relacionadas",
@@ -324,6 +326,8 @@ const hi: Copy = {
     how: "यह कैसे काम करता है",
     copyright: "© 2026 SwiftPDF. लोकल-फ़र्स्ट, डिज़ाइन से।",
     bottom: "100% ब्राउज़र में · कंटेंट ट्रैकिंग नहीं · ऑफ़लाइन चलता है",
+    language: "भाषा",
+    allTools: "सभी टूल्स",
   },
   related: {
     title: "संबंधित टूल्स",
@@ -489,6 +493,8 @@ const ur: Copy = {
     how: "یہ کیسے کام کرتا ہے",
     copyright: "© 2026 SwiftPDF۔ لوکل فرسٹ، ڈیزائن سے۔",
     bottom: "100% براؤزر میں · مواد کی کوئی ٹریکنگ نہیں · آف لائن چلتا ہے",
+    language: "زبان",
+    allTools: "تمام ٹولز",
   },
   related: {
     title: "متعلقہ ٹولز",
@@ -654,6 +660,8 @@ const ar: Copy = {
     how: "كيف تعمل",
     copyright: "© 2026 SwiftPDF. المحلية أولًا بالتصميم.",
     bottom: "100% في المتصفح · لا تتبع للمحتوى · تعمل دون اتصال",
+    language: "اللغة",
+    allTools: "كل الأدوات",
   },
   related: {
     title: "أدوات ذات صلة",
