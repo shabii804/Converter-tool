@@ -512,6 +512,10 @@ async function runPdfToWord(
     Tab,
     TabStopType,
     LineRuleType,
+    ImageRun,
+    HorizontalPositionRelativeFrom,
+    VerticalPositionRelativeFrom,
+    TextWrappingType,
   } = await import("docx");
   const outFiles: EngineResult["files"] = [];
 
@@ -718,16 +722,282 @@ async function runPdfToWord(
     return runs;
   };
 
+  /* ---------------- image extraction ----------------
+     pdf.js paints images with paintImageXObject / paintImageMaskXObject ops
+     in PDF user space (verified against pdf-lib placements: the unit square
+     under the current CTM is exactly the pdf-lib drawImage rect). Every
+     painted image is re-encoded and re-placed in the document at its
+     original position as a floating Word drawing anchored to the page. */
+
+  type ImgPlace = {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    data: Uint8Array;
+    mime: "png" | "jpg";
+  };
+
+  const PT2EMU = 12700;
+  const PX96 = (pt: number) => Math.max(1, Math.round((pt * 96) / 72));
+
+  const matMul = (m: number[], t: number[]): number[] => [
+    m[0] * t[0] + m[2] * t[1],
+    m[1] * t[0] + m[3] * t[1],
+    m[0] * t[2] + m[2] * t[3],
+    m[1] * t[2] + m[3] * t[3],
+    m[0] * t[4] + m[2] * t[5] + m[4],
+    m[1] * t[4] + m[3] * t[5] + m[5],
+  ];
+  const matApply = (m: number[], x: number, y: number) => ({
+    x: m[0] * x + m[2] * y + m[4],
+    y: m[1] * x + m[3] * y + m[5],
+  });
+
+  const canvasHasAlpha = (ctx: CanvasRenderingContext2D, w: number, h: number) => {
+    try {
+      const d = ctx.getImageData(0, 0, w, h).data;
+      for (let i = 3; i < d.length; i += 4) if (d[i] < 250) return true;
+    } catch {
+      /* tainted canvas — treat as opaque */
+    }
+    return false;
+  };
+
+  /** encode one resolved pdf.js image object (bitmap or raw rows) to
+      PNG (has alpha) or JPEG (opaque photo), bytes ready for docx */
+  const encodeImageObj = async (
+    obj: any
+  ): Promise<{ data: Uint8Array; mime: "png" | "jpg" } | null> => {
+    try {
+      const w: number = obj.width;
+      const h: number = obj.height;
+      if (!w || !h || w > 20000 || h > 20000) return null;
+      const c = document.createElement("canvas");
+      c.width = w;
+      c.height = h;
+      const ctx = c.getContext("2d")!;
+
+      if (obj.bitmap) {
+        ctx.drawImage(obj.bitmap, 0, 0);
+        const png = canvasHasAlpha(ctx, w, h);
+        const blob = await canvasToBlob(c, png ? "image/png" : "image/jpeg", 0.92);
+        return {
+          data: new Uint8Array(await blob.arrayBuffer()),
+          mime: png ? "png" : "jpg",
+        };
+      }
+
+      if (!obj.data) return null;
+      const id = ctx.createImageData(w, h);
+      const dest = id.data;
+      if (obj.kind === 3) {
+        /* RGBA_32BPP */
+        dest.set(obj.data.subarray(0, w * h * 4));
+      } else if (obj.kind === 2) {
+        /* RGB_24BPP */
+        const src: Uint8Array = obj.data;
+        for (let i = 0, j = 0; i < w * h * 3; i += 3, j += 4) {
+          dest[j] = src[i];
+          dest[j + 1] = src[i + 1];
+          dest[j + 2] = src[i + 2];
+          dest[j + 3] = 255;
+        }
+      } else if (obj.kind === 1) {
+        /* GRAYSCALE_1BPP — packed rows, bit 1 = white, bit 0 = black
+           (pdf.js nonBlackColor semantics) */
+        const src: Uint8Array = obj.data;
+        const rowBytes = (w + 7) >> 3;
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            const bit = (src[y * rowBytes + (x >> 3)] >> (7 - (x & 7))) & 1;
+            const v = bit ? 255 : 0;
+            const j = (y * w + x) * 4;
+            dest[j] = v;
+            dest[j + 1] = v;
+            dest[j + 2] = v;
+            dest[j + 3] = 255;
+          }
+        }
+      } else {
+        return null;
+      }
+      ctx.putImageData(id, 0, 0);
+      const png = obj.kind === 3 ? canvasHasAlpha(ctx, w, h) : false;
+      const blob = await canvasToBlob(c, png ? "image/png" : "image/jpeg", 0.92);
+      return {
+        data: new Uint8Array(await blob.arrayBuffer()),
+        mime: png ? "png" : "jpg",
+      };
+    } catch {
+      return null;
+    }
+  };
+
+  /** stencil mask → tinted RGBA. pdf.js delivers masks as packed bits with
+      0 = painted; the paint color is the fill color active at paint time */
+  const encodeMaskObj = async (
+    obj: any,
+    fill: [number, number, number]
+  ): Promise<{ data: Uint8Array; mime: "png" } | null> => {
+    try {
+      const w: number = obj.width;
+      const h: number = obj.height;
+      if (!w || !h || w > 20000 || h > 20000) return null;
+      const c = document.createElement("canvas");
+      c.width = w;
+      c.height = h;
+      const ctx = c.getContext("2d")!;
+      const id = ctx.createImageData(w, h);
+      const dest = id.data;
+      const src: Uint8Array = obj.data;
+      const rowBytes = (w + 7) >> 3;
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const bit = (src[y * rowBytes + (x >> 3)] >> (7 - (x & 7))) & 1;
+          const j = (y * w + x) * 4;
+          if (bit === 0) {
+            dest[j] = fill[0];
+            dest[j + 1] = fill[1];
+            dest[j + 2] = fill[2];
+            dest[j + 3] = 255;
+          }
+        }
+      }
+      ctx.putImageData(id, 0, 0);
+      const blob = await canvasToBlob(c, "image/png");
+      return { data: new Uint8Array(await blob.arrayBuffer()), mime: "png" };
+    } catch {
+      return null;
+    }
+  };
+
+  /** walk a page's operator list and produce placements in PDF user space */
+  const collectPageImages = async (
+    page: any,
+    OPS: Record<string, number>,
+    encoded: Map<string, { data: Uint8Array; mime: "png" | "jpg" } | null>
+  ): Promise<ImgPlace[]> => {
+    const out: ImgPlace[] = [];
+    let opList: any;
+    try {
+      opList = await page.getOperatorList();
+    } catch {
+      return out;
+    }
+    const getObj = (id: string): any => {
+      try {
+        if (page.commonObjs?.has?.(id)) return page.commonObjs.get(id);
+        if (page.objs?.has?.(id)) return page.objs.get(id);
+      } catch {
+        /* not resolved — skip */
+      }
+      return null;
+    };
+    let ctm: number[] = [1, 0, 0, 1, 0, 0];
+    const stack: number[][] = [];
+    let fill: [number, number, number] = [0, 0, 0];
+    const fillStack: [number, number, number][] = [];
+    const fns = opList.fnArray;
+    const argsArr = opList.argsArray;
+    for (let i = 0; i < fns.length; i++) {
+      const fn = fns[i];
+      const args = argsArr[i] as any;
+      if (fn === OPS.save) {
+        stack.push([...ctm]);
+        fillStack.push([...fill] as [number, number, number]);
+      } else if (fn === OPS.restore) {
+        ctm = stack.pop() ?? [1, 0, 0, 1, 0, 0];
+        fill = fillStack.pop() ?? [0, 0, 0];
+      } else if (fn === OPS.transform) {
+        ctm = matMul(ctm, args as number[]);
+      } else if (fn === OPS.setFillRGBColor) {
+        fill = [args[0], args[1], args[2]];
+      } else if (fn === OPS.setFillColorN) {
+        if (args.length === 1)
+          fill = [Math.round(args[0] * 255), Math.round(args[0] * 255), Math.round(args[0] * 255)];
+        else if (args.length === 3)
+          fill = [Math.round(args[0] * 255), Math.round(args[1] * 255), Math.round(args[2] * 255)];
+      } else if (fn === OPS.paintImageXObject || fn === OPS.paintJpegXObject) {
+        const objId = String(args[0]);
+        let enc = encoded.get(objId);
+        if (enc === undefined) {
+          enc = await encodeImageObj(getObj(objId));
+          encoded.set(objId, enc);
+        }
+        if (!enc) continue;
+        const p00 = matApply(ctm, 0, 0);
+        const p10 = matApply(ctm, 1, 0);
+        const p01 = matApply(ctm, 0, 1);
+        const p11 = matApply(ctm, 1, 1);
+        const xs = [p00.x, p10.x, p01.x, p11.x];
+        const ys = [p00.y, p10.y, p01.y, p11.y];
+        out.push({
+          x: Math.min(...xs),
+          y: Math.min(...ys),
+          w: Math.max(...xs) - Math.min(...xs),
+          h: Math.max(...ys) - Math.min(...ys),
+          data: enc.data,
+          mime: enc.mime,
+        });
+      } else if (fn === OPS.paintImageMaskXObject) {
+        const maskObj = args[0];
+        if (!maskObj?.data) continue;
+        const key = `mask:${maskObj.data.length}:${maskObj.width}x${maskObj.height}:${fill.join(",")}`;
+        let enc = encoded.get(key);
+        if (enc === undefined) {
+          enc = await encodeMaskObj(maskObj, fill);
+          encoded.set(key, enc);
+        }
+        if (!enc) continue;
+        const p00 = matApply(ctm, 0, 0);
+        const p10 = matApply(ctm, 1, 0);
+        const p01 = matApply(ctm, 0, 1);
+        const p11 = matApply(ctm, 1, 1);
+        const xs = [p00.x, p10.x, p01.x, p11.x];
+        const ys = [p00.y, p10.y, p01.y, p11.y];
+        out.push({
+          x: Math.min(...xs),
+          y: Math.min(...ys),
+          w: Math.max(...xs) - Math.min(...xs),
+          h: Math.max(...ys) - Math.min(...ys),
+          data: enc.data,
+          mime: "png",
+        });
+      }
+    }
+    /* drop degenerate and fully off-page placements */
+    const vp = page.getViewport({ scale: 1 });
+    return out.filter(
+      (p) =>
+        p.w >= 2 &&
+        p.h >= 2 &&
+        p.x < vp.width &&
+        p.y < vp.height &&
+        p.x + p.w > 0 &&
+        p.y + p.h > 0
+    );
+  };
+
+  const { OPS } = await import("pdfjs-dist");
+
   for (let i = 0; i < entries.length; i++) {
     const bytes = await fileToBytes(entries[i].file);
     const doc = await openWithPdfjs(bytes);
     const n = doc.numPages;
     const children: any[] = [];
+    /* encoded-image cache shared across pages (same XObject may be painted
+       on every page — headers, logos — decode each distinct object once) */
+    const encoded = new Map<
+      string,
+      { data: Uint8Array; mime: "png" | "jpg" } | null
+    >();
 
     /* pass 1 — visual lines for every page. Margins are measured across the
        whole document, so the extractor needs every page's lines up front. */
     const pagesLines: Line[][] = [];
     const pagesW: number[] = [];
+    const pagesImgs: ImgPlace[][] = [];
     let pageW = 0;
     let pageH = 0;
 
@@ -745,6 +1015,7 @@ async function runPdfToWord(
         pageH = vp.height;
       }
       pagesW.push(vp.width);
+      pagesImgs.push(await collectPageImages(page, OPS, encoded));
 
       const parts: Part[] = [];
       for (const item of tc.items as any[]) {
@@ -841,6 +1112,37 @@ async function runPdfToWord(
     /* pass 2 — paragraphs, alignment and spacing per page */
     for (let p = 1; p <= n; p++) {
       const lines = pagesLines[p - 1];
+
+      /* floating image runs for this page — Word drawings positioned
+         relative to the page with EMU offsets converted from PDF points.
+         Huge images (>55% of the page) go behind the text: they were
+         backgrounds or watermarks in the PDF. */
+      const pageImgRuns: any[] = pagesImgs[p - 1].map((pl, idx) =>
+        new ImageRun({
+          type: pl.mime,
+          data: pl.data,
+          transformation: {
+            width: PX96(pl.w),
+            height: PX96(pl.h),
+          },
+          floating: {
+            horizontalPosition: {
+              relative: HorizontalPositionRelativeFrom.PAGE,
+              offset: Math.round(pl.x * PT2EMU),
+            },
+            verticalPosition: {
+              relative: VerticalPositionRelativeFrom.PAGE,
+              offset: Math.round((pageH - pl.y - pl.h) * PT2EMU),
+            },
+            wrap: { type: TextWrappingType.NONE },
+            allowOverlap: true,
+            behindDocument:
+              pl.w * pl.h > 0.55 * pageW * pageH,
+            zIndex: 20 + idx,
+          },
+        })
+      );
+      let firstParaOfPage = true;
 
       if (p > 1 && children.length)
         children.push(
@@ -981,12 +1283,22 @@ async function runPdfToWord(
                 indent,
                 tabStops: tabs.length ? tabs : undefined,
                 spacing,
-                children: docRuns,
+                children:
+                  firstParaOfPage && pageImgRuns.length
+                    ? [...docRuns, ...pageImgRuns]
+                    : docRuns,
               })
             );
+            firstParaOfPage = false;
           }
         }
       }
+
+      /* pages with images but no text still need an anchor paragraph */
+      if (firstParaOfPage && pageImgRuns.length)
+        children.push(
+          new Paragraph({ children: pageImgRuns, spacing: { after: 0 } })
+        );
 
       cb.onStatus?.(`Building page ${p}/${n}`);
       cb.onFileProgress?.(entries[i].id, 0.45 + (0.55 * p) / n);
@@ -1011,7 +1323,7 @@ async function runPdfToWord(
   cb.onOverall?.(1);
   return {
     files: outFiles,
-    note: "Text extracted — scanned PDFs have no text layer; complex layouts are approximated",
+    note: "Text and images extracted — scanned PDFs have no text layer; complex layouts are approximated",
   };
 }
 
