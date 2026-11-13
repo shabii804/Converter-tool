@@ -890,10 +890,45 @@ async function runPdfToWord(
         if (page.commonObjs?.has?.(id)) return page.commonObjs.get(id);
         if (page.objs?.has?.(id)) return page.objs.get(id);
       } catch {
-        /* not resolved — skip */
+        /* not resolved — the async path below will wait for it */
       }
       return null;
     };
+    /* pdf.js does NOT resolve image objects during getOperatorList() — JPEG
+       (DCTDecode) images in particular are decoded lazily and only appear in
+       page.objs when the canvas renderer asks for them. The old code only did
+       a synchronous has()/get() probe, so every photo in a real-world PDF
+       (Word exports, phone scans — all DCTDecode) was silently skipped and
+       the converted Word file lost it. This resolver waits for the object's
+       decode promise via the callback API instead of dropping it. */
+    const resolveObj = (id: string, timeoutMs = 10000): Promise<any> =>
+      new Promise((resolve) => {
+        const found = getObj(id);
+        if (found) {
+          resolve(found);
+          return;
+        }
+        let done = false;
+        const finish = (v: any) => {
+          if (!done) {
+            done = true;
+            clearTimeout(timer);
+            resolve(v ?? null);
+          }
+        };
+        const timer = setTimeout(() => finish(null), timeoutMs);
+        for (const store of [page.objs, page.commonObjs]) {
+          try {
+            store?.get?.(
+              id,
+              (data: any) => finish(data),
+              () => finish(null)
+            );
+          } catch {
+            /* store lacks the callback API — give up on this one */
+          }
+        }
+      });
     let ctm: number[] = [1, 0, 0, 1, 0, 0];
     const stack: number[][] = [];
     let fill: [number, number, number] = [0, 0, 0];
@@ -922,7 +957,8 @@ async function runPdfToWord(
         const objId = String(args[0]);
         let enc = encoded.get(objId);
         if (enc === undefined) {
-          enc = await encodeImageObj(getObj(objId));
+          const obj = getObj(objId) ?? (await resolveObj(objId));
+          enc = await encodeImageObj(obj);
           encoded.set(objId, enc);
         }
         if (!enc) continue;
@@ -942,7 +978,14 @@ async function runPdfToWord(
         });
       } else if (fn === OPS.paintImageMaskXObject) {
         const maskObj = args[0];
-        if (!maskObj?.data) continue;
+        if (!maskObj?.data) {
+          /* stencil masks can also arrive unresolved — wait like above */
+          if (maskObj && typeof maskObj.objId === "string") {
+            const waited: any = await resolveObj(String(maskObj.objId));
+            if (!waited?.data) continue;
+            Object.defineProperty(maskObj, "data", { value: waited.data });
+          } else continue;
+        }
         const key = `mask:${maskObj.data.length}:${maskObj.width}x${maskObj.height}:${fill.join(",")}`;
         let enc = encoded.get(key);
         if (enc === undefined) {
@@ -1681,7 +1724,31 @@ async function runWordToPdf(
     };
 
     /* real ruled table: columns sized to their content, cells wrapped,
-       header row bold on a light fill — instead of pipe-joined text */
+       header row bold on a light fill — instead of pipe-joined text.
+       Images inside cells (logos in invoices, product shots) are decoded
+       and drawn inside their cell — the old renderer read textContent only,
+       so every picture placed in a table silently vanished */
+    type DecodedImg = {
+      raw: Uint8Array;
+      format: "PNG" | "JPEG";
+      w: number;
+      h: number;
+    };
+    const decodeImg = (src: string): DecodedImg | null => {
+      const m = src.match(/^data:image\/(png|jpe?g);base64,([\s\S]+)$/);
+      if (!m) return null;
+      try {
+        const bin = atob(m[2]);
+        const raw = new Uint8Array(bin.length);
+        for (let k = 0; k < bin.length; k++) raw[k] = bin.charCodeAt(k);
+        const props = pdf.getImageProperties(raw);
+        if (!props.width || !props.height) return null;
+        return { raw, format: m[1] === "png" ? "PNG" as const : "JPEG" as const, w: props.width, h: props.height };
+      } catch {
+        return null;
+      }
+    };
+
     const renderTable = (table: Element) => {
       const trs = Array.from(table.querySelectorAll("tr"));
       if (!trs.length) return;
@@ -1689,12 +1756,20 @@ async function runWordToPdf(
       const pad = 4;
       const lineH = size * 1.35;
       const grid: string[][] = [];
+      const cellImgs: DecodedImg[][][] = [];
       const rowBold: boolean[] = [];
       for (let r = 0; r < trs.length; r++) {
         const cells = Array.from(trs[r].querySelectorAll("th,td"));
         grid.push(
           cells.map((c) =>
             (c.textContent ?? "").replace(/\s+/g, " ").trim()
+          )
+        );
+        cellImgs.push(
+          cells.map((c) =>
+            Array.from(c.querySelectorAll("img"))
+              .map((im) => decodeImg(im.getAttribute("src") ?? ""))
+              .filter((d): d is DecodedImg => !!d)
           )
         );
         rowBold.push(
@@ -1706,6 +1781,7 @@ async function runWordToPdf(
       }
       const nCols = Math.max(...grid.map((r) => r.length));
       for (const r of grid) while (r.length < nCols) r.push("");
+      for (const r of cellImgs) while (r.length < nCols) r.push([]);
       pdf.setFontSize(size);
       const colW: number[] = [];
       for (let c = 0; c < nCols; c++) {
@@ -1715,6 +1791,10 @@ async function runWordToPdf(
           for (const word of grid[r][c].split(/\s+/))
             if (word) w = Math.max(w, pdf.getTextWidth(word));
         }
+        /* an image column needs room for the picture, not just its caption */
+        for (const rowImgs of cellImgs)
+          for (const im of rowImgs[c] ?? [])
+            w = Math.max(w, Math.min(im.w, (pageW - M * 2) * 0.6));
         colW.push(
           Math.min(Math.max(w + pad * 2 + 2, 42), (pageW - M * 2) * 0.6)
         );
@@ -1734,7 +1814,30 @@ async function runWordToPdf(
             : []
         );
         const nLines = Math.max(1, ...cellLines.map((ls) => ls.length));
-        const rowH = nLines * lineH + pad * 2;
+        /* image stack height per cell (images scaled to the column width) */
+        const cellImgSizes = cellImgs[r].map((imgs, c) => {
+          const maxW = Math.max(12, colW[c] - pad * 2);
+          return imgs.map((im) => {
+            const dw = Math.min(im.w, maxW);
+            const dh = Math.max(1, (im.h * dw) / im.w);
+            return { im, dw, dh };
+          });
+        });
+        const imgH = Math.max(
+          0,
+          ...cellImgSizes.map((sizes) =>
+            sizes.reduce((a, s, i) => a + s.dh + (i ? 4 : 0), 0)
+          )
+        );
+        /* keep the row smaller than one page — an oversized image stack is
+           scaled down as a whole instead of overflowing the cell */
+        const capH = pageH - M * 2 - pad * 2;
+        let scale = 1;
+        if (imgH > capH) scale = capH / imgH;
+        /* images stack BELOW the cell text, so the row needs the sum,
+           not the max — using max() pushed images past the row bottom and
+           the draw guard clipped every cell picture away */
+        const rowH = nLines * lineH + imgH * scale + pad * 2;
         if (y + rowH > pageH - M) {
           pdf.addPage();
           y = M;
@@ -1752,6 +1855,19 @@ async function runWordToPdf(
               x + pad,
               y + pad + size * 0.85 + li * lineH
             );
+          /* draw the cell's images stacked below its text */
+          let iy = y + pad + nLines * lineH;
+          for (const s of cellImgSizes[c]) {
+            const dh = s.dh * scale;
+            const dw = s.dw * scale;
+            if (iy + dh > y + rowH - pad) break;
+            try {
+              pdf.addImage(s.im.raw, s.im.format, x + pad, iy, dw, dh);
+            } catch {
+              /* broken image — skip rather than fail the whole file */
+            }
+            iy += dh + 4;
+          }
           x += colW[c];
         }
         y += rowH;
@@ -1793,6 +1909,49 @@ async function runWordToPdf(
       }
     };
 
+    /* mixed container walker: visits childNodes in document order so the
+       paragraph's own text, inline styling and pictures interleave exactly
+       like the source. The old recursion walked element children only, so
+       every text run sitting next to an inline picture ("Here is my logo: …")
+       was silently dropped from the converted PDF */
+    const walkMixed = (node: Element, depth: number, align: "left" | "center" | "right") => {
+      let buf: RRun[] = [];
+      const flush = () => {
+        if (buf.some((r) => r.text.trim())) writeRuns(buf, 11, 0, 8, align);
+        buf = [];
+      };
+      node.childNodes.forEach((n) => {
+        if (n.nodeType === 3) {
+          const t = n.textContent ?? "";
+          if (t) buf.push({ text: t, bold: false, italic: false });
+        } else if (n.nodeType === 1) {
+          const t = (n as Element).tagName.toLowerCase();
+          if (t === "img") {
+            flush();
+            drawImageEl(n as Element);
+          } else if (isList(t)) {
+            flush();
+            walkList(n as Element, depth);
+          } else if (t === "table") {
+            flush();
+            renderTable(n as Element);
+          } else if (/^h[1-6]$/.test(t)) {
+            flush();
+            const hsize = [20, 17, 15, 13.5, 12.5, 12][
+              parseInt(t[1], 10) - 1
+            ];
+            writeRuns(inlineRuns(n as Element, true, false), hsize, 0, 6, alignOf(n as Element));
+          } else if ((n as Element).querySelector("img,ul,ol,table")) {
+            flush();
+            walkMixed(n as Element, depth, alignOf(n as Element));
+          } else {
+            inlineRuns(n as Element, false, false).forEach((r) => buf.push(r));
+          }
+        }
+      });
+      flush();
+    };
+
     const walk = (node: Element, depth: number) => {
       for (const el of Array.from(node.children)) {
         const tag = el.tagName.toLowerCase();
@@ -1806,9 +1965,8 @@ async function runWordToPdf(
         } else if (tag === "img") {
           drawImageEl(el);
         } else if (el.querySelector("img,ul,ol,table")) {
-          /* mixed container — walk in document order so images/lists land
-             between the right paragraphs */
-          walk(el, depth);
+          /* mixed container — text and images in document order */
+          walkMixed(el, depth, alignOf(el));
         } else {
           const runs = inlineRuns(el, false, false);
           if (runs.some((r) => r.text.trim()))
