@@ -13,7 +13,7 @@ import { IconTile } from "@/components/kit/icon-tile";
 import { Modal, ModalContent } from "@/components/kit/modal";
 import { categoryMeta } from "@/components/kit/category";
 import { useTheme } from "next-themes";
-import { Moon, Sun, ShieldCheck, Search, ChevronDown, Globe, Check, X } from "lucide-react";
+import { Moon, Sun, ShieldCheck, Search, ChevronDown, Globe, Check, X, ArrowRight, BadgeCheck } from "lucide-react";
 import { Logo } from "./logo";
 import { cn } from "@/lib/utils";
 
@@ -111,6 +111,23 @@ export function Header() {
     return `/${l}${rest || ""}`;
   };
 
+  /* real-link navigation swaps the SPA to the home view — retry the
+     section scroll until the home content has mounted (same as footer) */
+  const scrollToSection = (id: string) => {
+    const t0 = performance.now();
+    const tryScroll = () => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth" });
+      } else if (performance.now() - t0 < 1200) {
+        setTimeout(tryScroll, 120);
+      }
+    };
+    setTimeout(tryScroll, 120);
+  };
+
+  const scrollTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
+
   return (
     <header className="sticky top-0 z-40 border-b border-border-subtle bg-background/80 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-1.5 px-3 sm:gap-2.5 sm:px-6">
@@ -205,7 +222,25 @@ export function Header() {
           {t.nav.blog}
         </Link>
 
+        {/* About — real anchor to the why-on-device section */}
+        <Link
+          href={`${localeHref("/")}#why`}
+          onClick={() => scrollToSection("why")}
+          className="hidden min-h-11 items-center rounded-control px-3 text-sm font-medium text-fg-muted transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring md:inline-flex"
+        >
+          {t.nav.about}
+        </Link>
+
         <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+          {/* free-forever badge — honest: every tool runs free, no account */}
+          <div
+            className="hidden items-center gap-1.5 whitespace-nowrap rounded-chip border border-primary/25 bg-primary/10 px-3 py-1.5 lg:flex"
+            title="Every tool is free — no account, no watermark, no limits."
+          >
+            <BadgeCheck className="size-3.5 text-primary" aria-hidden="true" />
+            <span className="text-micro font-semibold text-primary">{t.nav.freeBadge}</span>
+          </div>
+
           {/* privacy badge — honest, real-time meaningless but true by architecture */}
           <div
             className="hidden items-center gap-1.5 whitespace-nowrap rounded-chip border border-success/25 bg-success/10 px-3 py-1.5 xl:flex"
@@ -279,6 +314,17 @@ export function Header() {
           >
             <Sun className="hidden dark:block" aria-hidden="true" />
             <Moon className="block dark:hidden" aria-hidden="true" />
+          </Button>
+
+          {/* primary CTA — scrolls to the hero dropzone */}
+          <Button
+            variant="primary"
+            size="md"
+            onClick={scrollTop}
+            className="hidden rounded-chip px-4 font-semibold sm:inline-flex"
+          >
+            {t.nav.getStarted}
+            <ArrowRight className="size-4" aria-hidden="true" />
           </Button>
         </div>
       </div>

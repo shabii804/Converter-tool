@@ -44,6 +44,9 @@ const en = {
     blog: "Blog",
     search: "Search",
     privacy: "Nothing leaves your device",
+    freeBadge: "Free forever",
+    about: "About",
+    getStarted: "Get started",
   },
   mega: {
     aria: "All tools, grouped by category",
@@ -218,6 +221,9 @@ const es: Copy = {
     blog: "Blog",
     search: "Buscar",
     privacy: "Nada sale de tu dispositivo",
+    freeBadge: "Gratis para siempre",
+    about: "Acerca de",
+    getStarted: "Empezar",
   },
   mega: {
     aria: "Todas las herramientas, por categoría",
@@ -390,6 +396,9 @@ const fr: Copy = {
     blog: "Blog",
     search: "Rechercher",
     privacy: "Rien ne quitte votre appareil",
+    freeBadge: "Gratuit pour toujours",
+    about: "À propos",
+    getStarted: "Commencer",
   },
   mega: {
     aria: "Tous les outils, par catégorie",

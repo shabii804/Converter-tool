@@ -11,6 +11,9 @@ const pt: Copy = {
     blog: "Blog",
     search: "Pesquisar",
     privacy: "Nada sai do seu dispositivo",
+    freeBadge: "Grátis para sempre",
+    about: "Sobre",
+    getStarted: "Começar",
   },
   mega: {
     aria: "Todas as ferramentas, por categoria",
@@ -183,6 +186,9 @@ const hi: Copy = {
     blog: "ब्लॉग",
     search: "खोजें",
     privacy: "कुछ भी डिवाइस से बाहर नहीं जाता",
+    freeBadge: "हमेशा मुफ़्त",
+    about: "हमारे बारे में",
+    getStarted: "शुरू करें",
   },
   mega: {
     aria: "सभी टूल्स, श्रेणी के अनुसार",
@@ -355,6 +361,9 @@ const ur: Copy = {
     blog: "بلاگ",
     search: "تلاش",
     privacy: "کچھ بھی ڈیوائس سے باہر نہیں جاتا",
+    freeBadge: "ہمیشہ مفت",
+    about: "ہمارے بارے میں",
+    getStarted: "شروع کریں",
   },
   mega: {
     aria: "تمام ٹولز، زمرہ وار",
@@ -527,6 +536,9 @@ const ar: Copy = {
     blog: "المدونة",
     search: "بحث",
     privacy: "لا شيء يغادر جهازك",
+    freeBadge: "مجاني للأبد",
+    about: "حول",
+    getStarted: "ابدأ",
   },
   mega: {
     aria: "كل الأدوات، بحسب الفئة",
