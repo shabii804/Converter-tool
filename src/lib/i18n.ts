@@ -56,7 +56,7 @@ const en = {
     eyebrow: "{n} tools · 100% on-device",
     h1a: "Every PDF tool.",
     h1b: "None of your files leave this device.",
-    sub: "Drop a file and SwiftPDF picks the right tool — merge, split, compress, convert and more, processed entirely on your device.",
+    sub: "Edit, convert, merge, compress and more — all in one powerful toolkit, completely offline and private.",
     dropTitle: "Drop PDF or image files here",
     dropBrowse: "or click to browse",
     dropPaste: "paste with",
@@ -65,6 +65,11 @@ const en = {
     viewAll: "View all tools",
     dropHint: "Files stay on this device · No account · Works offline",
     chips: { private: "Private", offline: "Works offline", nosignup: "No sign-up", free: "Free" },
+    noLimit: "No size limits · processed on your device",
+  },
+  quick: {
+    convert: "Convert", compress: "Compress", merge: "Merge", split: "Split",
+    edit: "Edit", protect: "Protect", unlock: "Unlock", more: "More",
   },
   sug: {
     combine: "{n} PDFs ready to combine",
@@ -225,7 +230,7 @@ const es: Copy = {
     eyebrow: "{n} herramientas · 100 % en tu dispositivo",
     h1a: "Todas las herramientas PDF.",
     h1b: "Ningún archivo sale de tu dispositivo.",
-    sub: "Suelta un archivo y SwiftPDF elige la herramienta adecuada — combinar, dividir, comprimir, convertir y más, procesado íntegramente en tu dispositivo.",
+    sub: "Edita, convierte, une, comprime y más — todo en un kit potente, completamente sin conexión y privado.",
     dropTitle: "Suelta aquí tus PDF o imágenes",
     dropBrowse: "o haz clic para explorar",
     dropPaste: "pega con",
@@ -234,6 +239,11 @@ const es: Copy = {
     viewAll: "Ver todas las herramientas",
     dropHint: "Los archivos permanecen en tu dispositivo · Sin cuenta · Funciona sin conexión",
     chips: { private: "Privado", offline: "Funciona sin conexión", nosignup: "Sin registro", free: "Gratis" },
+    noLimit: "Sin límites de tamaño · procesado en tu dispositivo",
+  },
+  quick: {
+    convert: "Convertir", compress: "Comprimir", merge: "Unir", split: "Dividir",
+    edit: "Editar", protect: "Proteger", unlock: "Desbloquear", more: "Más",
   },
   sug: {
     combine: "{n} PDF listos para combinar",
@@ -392,7 +402,7 @@ const fr: Copy = {
     eyebrow: "{n} outils · 100 % sur votre appareil",
     h1a: "Tous les outils PDF.",
     h1b: "Aucun fichier ne quitte votre appareil.",
-    sub: "Déposez un fichier et SwiftPDF choisit le bon outil — fusionner, diviser, compresser, convertir et plus, entièrement traité sur votre appareil.",
+    sub: "Modifiez, convertissez, fusionnez, compressez et plus — une boîte à outils puissante, totalement hors ligne et privée.",
     dropTitle: "Déposez vos PDF ou images ici",
     dropBrowse: "ou cliquez pour parcourir",
     dropPaste: "collez avec",
@@ -401,6 +411,11 @@ const fr: Copy = {
     viewAll: "Voir tous les outils",
     dropHint: "Les fichiers restent sur cet appareil · Sans compte · Fonctionne hors ligne",
     chips: { private: "Privé", offline: "Fonctionne hors ligne", nosignup: "Sans inscription", free: "Gratuit" },
+    noLimit: "Aucune limite de taille · traité sur votre appareil",
+  },
+  quick: {
+    convert: "Convertir", compress: "Compresser", merge: "Fusionner", split: "Diviser",
+    edit: "Éditer", protect: "Protéger", unlock: "Déverrouiller", more: "Plus",
   },
   sug: {
     combine: "{n} PDF prêts à fusionner",

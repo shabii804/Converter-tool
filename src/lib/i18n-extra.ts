@@ -23,7 +23,7 @@ const pt: Copy = {
     eyebrow: "{n} ferramentas · 100% no seu dispositivo",
     h1a: "Todas as ferramentas PDF.",
     h1b: "Nenhum arquivo sai do seu dispositivo.",
-    sub: "Solte um arquivo e o SwiftPDF escolhe a ferramenta certa — mesclar, dividir, comprimir, converter e mais, processado inteiramente no seu dispositivo.",
+    sub: "Edite, converta, mescle, comprima e mais — tudo em um kit poderoso, totalmente offline e privado.",
     dropTitle: "Solte arquivos PDF ou imagens aqui",
     dropBrowse: "ou clique para procurar",
     dropPaste: "cole com",
@@ -32,6 +32,11 @@ const pt: Copy = {
     viewAll: "Ver todas as ferramentas",
     dropHint: "Os arquivos ficam neste dispositivo · Sem conta · Funciona offline",
     chips: { private: "Privado", offline: "Funciona offline", nosignup: "Sem cadastro", free: "Grátis" },
+    noLimit: "Sem limites de tamanho · processado no seu dispositivo",
+  },
+  quick: {
+    convert: "Converter", compress: "Comprimir", merge: "Mesclar", split: "Dividir",
+    edit: "Editar", protect: "Proteger", unlock: "Desbloquear", more: "Mais",
   },
   sug: {
     combine: "{n} PDFs prontos para combinar",
@@ -190,7 +195,7 @@ const hi: Copy = {
     eyebrow: "{n} टूल · 100% आपके डिवाइस पर",
     h1a: "हर PDF टूल एक जगह।",
     h1b: "आपकी कोई फ़ाइल इस डिवाइस से बाहर नहीं जाती।",
-    sub: "फ़ाइल छोड़ें और SwiftPDF सही टूल चुनता है — मर्ज, स्प्लिट, कंप्रेस, कन्वर्ट और बहुत कुछ, पूरी तरह आपके डिवाइस पर प्रोसेस होता है।",
+    sub: "एडिट, कन्वर्ट, मर्ज, कंप्रेस और बहुत कुछ — सब एक शक्तिशाली टूलकिट में, पूरी तरह ऑफ़लाइन और निजी।",
     dropTitle: "PDF या इमेज फ़ाइलें यहाँ छोड़ें",
     dropBrowse: "या क्लिक करके चुनें",
     dropPaste: "पेस्ट करें",
@@ -199,6 +204,11 @@ const hi: Copy = {
     viewAll: "सभी टूल देखें",
     dropHint: "फ़ाइलें इसी डिवाइस पर रहती हैं · खाता नहीं · ऑफ़लाइन चलता है",
     chips: { private: "निजी", offline: "ऑफ़लाइन चलता है", nosignup: "साइन-अप नहीं", free: "मुफ़्त" },
+    noLimit: "कोई साइज़ सीमा नहीं · आपके डिवाइस पर प्रोसेस होता है",
+  },
+  quick: {
+    convert: "कन्वर्ट", compress: "कंप्रेस", merge: "मर्ज", split: "स्प्लिट",
+    edit: "एडिट", protect: "प्रोटेक्ट", unlock: "अनलॉक", more: "और",
   },
   sug: {
     combine: "{n} PDFs जोड़ने के लिए तैयार",
@@ -357,7 +367,7 @@ const ur: Copy = {
     eyebrow: "{n} ٹولز · 100% آپ کے ڈیوائس پر",
     h1a: "ہر PDF ٹول ایک جگہ۔",
     h1b: "آپ کی کوئی فائل اس ڈیوائس سے باہر نہیں جاتی۔",
-    sub: "فائل چھوڑیں اور SwiftPDF درست ٹول منتخب کرتا ہے — مرج، اسپلٹ، کمپریس، تبدیلی اور مزید، پوری طرح آپ کے ڈیوائس پر پروسیس ہوتا ہے۔",
+    sub: "ایڈٹ، تبدیل، ضم، کمپریس اور مزید — سب ایک طاقتور ٹولکٹ میں، مکمل طور پر آف لائن اور نجی۔",
     dropTitle: "PDF یا تصویری فائلیں یہاں چھوڑیں",
     dropBrowse: "یا کلک کر کے منتخب کریں",
     dropPaste: "پیسٹ کریں",
@@ -366,6 +376,11 @@ const ur: Copy = {
     viewAll: "تمام ٹولز دیکھیں",
     dropHint: "فائلیں اسی ڈیوائس پر رہتی ہیں · اکاؤنٹ نہیں · آف لائن چلتا ہے",
     chips: { private: "پرائیویٹ", offline: "آف لائن چلتا ہے", nosignup: "سائن اپ نہیں", free: "مفت" },
+    noLimit: "کوئی سائز کی حد نہیں · آپ کے ڈیوائس پر پروسیس ہوتا ہے",
+  },
+  quick: {
+    convert: "تبدیلی", compress: "کمپریس", merge: "ضم", split: "تقسیم",
+    edit: "ایڈٹ", protect: "محفوظ", unlock: "کھولیں", more: "مزید",
   },
   sug: {
     combine: "{n} PDFs جوڑنے کے لیے تیار",
@@ -524,7 +539,7 @@ const ar: Copy = {
     eyebrow: "{n} أداة · 100% على جهازك",
     h1a: "كل أدوات PDF في مكان واحد.",
     h1b: "لا ملف من ملفاتك يغادر هذا الجهاز.",
-    sub: "أفلِت ملفًا وسيتولى SwiftPDF اختيار الأداة المناسبة — دمج، تقسيم، ضغط، تحويل والمزيد، تتم معالجتها بالكامل على جهازك.",
+    sub: "حرّر، حوّل، ادمج، اضغط والمزيد — كل ذلك في صندوق أدوات قوي، دون اتصال وبخصوصية تامة.",
     dropTitle: "أفلِت ملفات PDF أو الصور هنا",
     dropBrowse: "أو انقر للتصفح",
     dropPaste: "الصق باستخدام",
@@ -533,6 +548,11 @@ const ar: Copy = {
     viewAll: "عرض كل الأدوات",
     dropHint: "الملفات تبقى على هذا الجهاز · بلا حساب · تعمل دون اتصال",
     chips: { private: "خاصة", offline: "تعمل دون اتصال", nosignup: "بلا تسجيل", free: "مجانية" },
+    noLimit: "بلا حدود للحجم · يُعالج على جهازك",
+  },
+  quick: {
+    convert: "تحويل", compress: "ضغط", merge: "دمج", split: "تقسيم",
+    edit: "تحرير", protect: "حماية", unlock: "فتح", more: "المزيد",
   },
   sug: {
     combine: "{n} ملفات PDF جاهزة للدمج",
