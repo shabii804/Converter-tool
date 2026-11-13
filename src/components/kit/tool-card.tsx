@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Star } from "lucide-react";
+import { Star, ChevronUp, ChevronDown } from "lucide-react";
 import { type ToolDef } from "@/lib/tools";
 import { useLocaleHref } from "@/lib/i18n-hooks";
 import { categoryMeta } from "./category";
@@ -15,6 +15,8 @@ import { cn } from "@/lib/utils";
  * Entrance animation is pure CSS (compositor-friendly, no JS driver) and
  * disabled under prefers-reduced-motion.
  * Favorite toggle sits as a sibling button (valid HTML, keyboard accessible).
+ * Customize mode makes the card draggable (desktop) and adds ↑/↓ buttons
+ * (touch + keyboard) so the user can arrange tools their own way.
  */
 export function ToolCard({
   tool,
@@ -24,6 +26,14 @@ export function ToolCard({
   onToggleFavorite,
   favAddLabel = "Add to favorites",
   favRemoveLabel = "Remove from favorites",
+  customizing = false,
+  isDragging = false,
+  onDragStart,
+  onDragEnterCard,
+  onDragEnd,
+  onMove,
+  moveUpLabel = "Move up",
+  moveDownLabel = "Move down",
 }: {
   tool: ToolDef;
   index?: number;
@@ -32,17 +42,41 @@ export function ToolCard({
   onToggleFavorite?: () => void;
   favAddLabel?: string;
   favRemoveLabel?: string;
+  customizing?: boolean;
+  isDragging?: boolean;
+  onDragStart?: () => void;
+  onDragEnterCard?: () => void;
+  onDragEnd?: () => void;
+  onMove?: (dir: -1 | 1) => void;
+  moveUpLabel?: string;
+  moveDownLabel?: string;
 }) {
   const meta = categoryMeta(tool.category);
   const localeHref = useLocaleHref();
 
   return (
-    <div className="group relative tool-card-enter" style={{ "--enter-delay": `${Math.min(index * 25, 250)}ms` } as React.CSSProperties}>
+    <div
+      className={cn(
+        "group relative tool-card-enter",
+        customizing && "rounded-card transition-colors",
+        customizing && !isDragging && "cursor-grab active:cursor-grabbing",
+        isDragging && "opacity-35"
+      )}
+      style={{ "--enter-delay": `${Math.min(index * 25, 250)}ms` } as React.CSSProperties}
+      draggable={customizing || undefined}
+      onDragStart={customizing ? onDragStart : undefined}
+      onDragEnter={customizing ? onDragEnterCard : undefined}
+      onDragEnd={customizing ? onDragEnd : undefined}
+    >
       <Link
         href={localeHref(`/tool/${tool.id}`)}
         onClick={() => onOpen(tool.id)}
+        draggable={false}
         className={cn(
-          "relative flex min-h-[120px] w-full flex-col items-start gap-2 rounded-card border border-border bg-surface-2 p-3 text-left shadow-xs outline-none sm:gap-3 sm:p-5 sm:pr-14",
+          "relative flex min-h-[120px] w-full flex-col items-start gap-2 rounded-card border bg-surface-2 p-3 text-left shadow-xs outline-none sm:gap-3 sm:p-5 sm:pr-14",
+          customizing
+            ? "border-dashed border-border-strong"
+            : "border-border",
           "transition-[box-shadow,border-color,translate] duration-200 hover:border-border-strong hover:shadow-md hover:-translate-y-0.5",
           "focus-visible:ring-2 focus-visible:ring-ring"
         )}
@@ -83,6 +117,31 @@ export function ToolCard({
             aria-hidden="true"
           />
         </button>
+      )}
+
+      {customizing && onMove && (
+        <div className="absolute bottom-1.5 right-1.5 z-10 flex flex-col gap-0.5">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onMove(-1);
+            }}
+            aria-label={`${moveUpLabel}: ${tool.name}`}
+            className="flex size-6 items-center justify-center rounded-chip border border-border bg-surface-1 text-fg-muted outline-none transition-colors hover:bg-surface-3 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <ChevronUp className="size-3.5" aria-hidden="true" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onMove(1);
+            }}
+            aria-label={`${moveDownLabel}: ${tool.name}`}
+            className="flex size-6 items-center justify-center rounded-chip border border-border bg-surface-1 text-fg-muted outline-none transition-colors hover:bg-surface-3 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <ChevronDown className="size-3.5" aria-hidden="true" />
+          </button>
+        </div>
       )}
     </div>
   );
