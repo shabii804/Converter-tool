@@ -60,6 +60,10 @@ export interface ToolDef {
   badge?: string;
   /** extra search terms for the local grid search (UI only) */
   keywords?: string;
+  /** short search-engine description (≤160 chars) — falls back to description */
+  metaDescription?: string;
+  /** page-level meta keywords (SEO) — falls back to the global PDF keywords */
+  metaKeywords?: string[];
 }
 
 export const CATEGORIES: { id: ToolCategory | "all"; label: string }[] = [
@@ -524,12 +528,24 @@ export const TOOLS: ToolDef[] = [
     description:
       "Crop a photo to standard ID photo sizes at 300 DPI and lay out a 10×15 cm print sheet — ready to print at home. You align the crop; there is no face detection.",
     keywords: "id photo passport visa crop print sheet portrait headshot document",
+    metaDescription:
+      "Free browser-based ID photo maker. Crop to passport, visa or CNIC sizes at 300 DPI and print a sheet — nothing is uploaded.",
+    metaKeywords: [
+      "id photo tool",
+      "passport photo maker",
+      "passport size photo",
+      "visa photo 35x45",
+      "2x2 inch photo",
+      "CNIC photo size",
+      "photo print sheet",
+      "300 DPI id photo",
+    ],
     badge: "New",
     category: "convert",
     icon: IdCard,
     accept: "image/*",
     minFiles: 1,
-    maxFiles: 5,
+    maxFiles: 1,
     input: "image",
   },
 ];

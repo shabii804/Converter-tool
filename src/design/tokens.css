@@ -24,8 +24,8 @@
   --surface-1: #f6f7fb;           /* page sections, subtle wells */
   --surface-2: #ffffff;           /* cards */
   --surface-3: #eef0f7;           /* hover / inset */
-  --foreground-muted: #5b6472;    /* 7.0:1 on white */
-  --foreground-faint: #8a93a3;    /* 4.6:1 on white — captions only */
+  --foreground-muted: #5b6472;    /* 5.98:1 on white */
+  --foreground-faint: #687180;    /* 4.93:1 on white · 4.60:1 on surface-1 */
 
   --card: var(--surface-2);
   --card-foreground: var(--foreground);
@@ -116,7 +116,7 @@
   --surface-2: #101627;          /* cards on navy */
   --surface-3: #1a2138;
   --foreground-muted: #97a1b5;   /* 7.4:1 on navy-950 */
-  --foreground-faint: #6b7590;   /* 4.6:1 on navy-950 */
+  --foreground-faint: #7a8499;   /* 5.09:1 on navy-950 · 4.79:1 on cards */
 
   --card: var(--surface-2);
   --card-foreground: var(--foreground);

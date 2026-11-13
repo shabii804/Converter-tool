@@ -74,6 +74,16 @@ export function AppShell({
     openedRef.current = true;
   }, [deepLinkToolId]);
 
+  /* the home route always renders the home view — the zustand store
+     survives client-side route changes, so a tool view must not leak
+     into /en via real links (breadcrumb, footer, related tools) */
+  useEffect(() => {
+    if (deepLinkToolId) return;
+    if (useStore.getState().view !== "home") {
+      useStore.getState().goHome();
+    }
+  }, [deepLinkToolId]);
+
   /* on a tool route, going back to the home VIEW also restores the / URL */
   useEffect(() => {
     if (!deepLinkToolId || !openedRef.current) return;

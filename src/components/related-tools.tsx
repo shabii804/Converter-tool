@@ -38,7 +38,10 @@ export function RelatedTools({ toolId }: { toolId: string }) {
       </div>
       <p className="mt-4 text-[13px] text-fg-faint">
         Or go back to{" "}
-        <Link href={localeHref("/")} className="font-semibold text-primary underline-offset-4 hover:underline">
+        <Link
+          href={localeHref("/")}
+          className="inline-flex min-h-11 items-center font-semibold text-primary underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring rounded"
+        >
           all {TOOLS.length} tools
         </Link>
         .

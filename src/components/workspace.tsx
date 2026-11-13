@@ -6,6 +6,7 @@ import { useStore, type StoreFile } from "@/lib/store";
 import { toolById } from "@/lib/tools";
 import { firstPagePreview } from "@/lib/pdf-engine";
 import { executeRun } from "@/lib/pipeline";
+import { idpMmSize } from "@/lib/id-photo-presets";
 import { Button } from "@/components/kit/button";
 import { Card } from "@/components/kit/card";
 import { FileCard } from "@/components/kit/file-card";
@@ -39,7 +40,7 @@ import {
 
 /* ---------- per-tool option state ---------- */
 
-interface Options {
+export interface Options {
   // split
   splitMode: "ranges" | "fixed" | "extract";
   ranges: string;
@@ -137,12 +138,20 @@ interface Options {
   ocrLang: "eng" | "spa" | "fra" | "por" | "hin" | "urd" | "ara";
   ocrPageMarkers: boolean;
   // id-photo
-  idPreset: "p35x45" | "p51x51" | "p33x48" | "p30x40";
+  idPreset: string;
   idZoom: number;
   idOffsetX: number;
   idOffsetY: number;
   idBg: string;
   idSheet: boolean;
+  idGuide: boolean;
+  idPaper: "10x15" | "4x6" | "a4";
+  /** copies on the print sheet; 0 = as many as fit */
+  idCopies: number;
+  idCutGuides: boolean;
+  idUnit: "mm" | "in";
+  idCustomW: number;
+  idCustomH: number;
 }
 
 const defaultOptions = (): Options => ({
@@ -219,6 +228,13 @@ const defaultOptions = (): Options => ({
   idOffsetY: 0,
   idBg: "#ffffff",
   idSheet: true,
+  idGuide: true,
+  idPaper: "10x15",
+  idCopies: 0,
+  idCutGuides: true,
+  idUnit: "mm",
+  idCustomW: 35,
+  idCustomH: 45,
 });
 
 /** Friendly large-file threshold (honest copy, no fake limits). */
@@ -231,6 +247,21 @@ const AnnotationEditor = dynamic(
     ssr: false,
     loading: () => (
       <div className="h-72 animate-pulse rounded-card bg-surface-2" aria-hidden="true" />
+    ),
+  }
+);
+
+/* code-split: the dedicated one-page ID Photo tool loads only on its route */
+const IdPhotoTool = dynamic(
+  () => import("./id-photo-tool").then((m) => m.IdPhotoTool),
+  {
+    loading: () => (
+      <div
+        className="mx-auto h-96 w-full max-w-[1120px] px-4 pt-6 sm:px-6"
+        aria-hidden="true"
+      >
+        <div className="h-96 animate-pulse rounded-card bg-surface-2" />
+      </div>
     ),
   }
 );
@@ -324,6 +355,20 @@ export function Workspace({
   }, [canRun, running, files, opts, tool]);
 
   if (!tool) return null;
+
+  /* the ID Photo tool gets its own one-page layout (breadcrumb, 60/40
+     preview/options split, direct manipulation, on-page downloads) */
+  if (tool.id === "id-photo") {
+    return (
+      <IdPhotoTool
+        opts={opts}
+        set={set}
+        files={files}
+        addFiles={addFiles}
+        removeFile={removeFile}
+      />
+    );
+  }
 
   const hasLargeFile = files.some((f) => f.size > LARGE_FILE_BYTES);
 
@@ -668,15 +713,27 @@ function buildOptions(
       };
     case "ocr":
       return { lang: opts.ocrLang, pageMarkers: opts.ocrPageMarkers };
-    case "id-photo":
+    case "id-photo": {
+      const mm = idpMmSize(
+        opts.idPreset,
+        opts.idCustomW,
+        opts.idCustomH,
+        opts.idUnit
+      );
       return {
         preset: opts.idPreset,
+        w: mm.w,
+        h: mm.h,
         zoom: opts.idZoom,
         offsetX: opts.idOffsetX,
         offsetY: opts.idOffsetY,
         bg: opts.idBg,
         sheet: opts.idSheet,
+        paper: opts.idPaper,
+        copies: opts.idCopies,
+        cutGuides: opts.idCutGuides,
       };
+    }
     default:
       return {};
   }
@@ -1607,9 +1664,6 @@ function OptionsPanel({
         </div>
       );
 
-    case "id-photo":
-      return <IdPhotoOptions opts={opts} set={set} files={files} />;
-
     default:
       return null;
   }
@@ -2099,230 +2153,6 @@ function QrOptions({
           placeholder="Printed under the code — e.g. a label"
         />
       </div>
-    </div>
-  );
-}
-
-/* ---------- ID photo cropper with live preview ---------- */
-
-const ID_PREVIEW_PRESETS: Record<
-  Options["idPreset"],
-  { w: number; h: number; label: string }
-> = {
-  "p35x45": { w: 35, h: 45, label: "35 × 45 mm · Passport" },
-  "p51x51": { w: 51, h: 51, label: "51 × 51 mm · US 2×2 in" },
-  "p33x48": { w: 33, h: 48, label: "33 × 48 mm · Visa" },
-  "p30x40": { w: 30, h: 40, label: "30 × 40 mm" },
-};
-
-function IdPhotoOptions({
-  opts,
-  set,
-  files,
-}: {
-  opts: Options;
-  set: <K extends keyof Options>(k: K, v: Options[K]) => void;
-  files: StoreFile[];
-}) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const imgRef = useRef<HTMLImageElement | null>(null);
-  const cropFn = useRef<any>(null);
-  const [ready, setReady] = useState(0);
-  const [imgErr, setImgErr] = useState(false);
-
-  useEffect(() => {
-    let alive = true;
-    import("@/lib/extra-engine").then((m) => {
-      if (!alive) return;
-      cropFn.current = m.idPhotoCropRect;
-      setReady((r) => r + 1);
-    });
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    const f = files[0]?.file;
-    if (!f || !/^image\//.test(f.type)) {
-      imgRef.current = null;
-      setReady((r) => r + 1);
-      return;
-    }
-    const url = URL.createObjectURL(f);
-    const img = new Image();
-    img.onload = () => {
-      imgRef.current = img;
-      setImgErr(false);
-      setReady((r) => r + 1);
-    };
-    img.onerror = () => setImgErr(true);
-    img.src = url;
-    return () => {
-      URL.revokeObjectURL(url);
-    };
-  }, [files]);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const img = imgRef.current;
-    if (!canvas || !img || !cropFn.current) return;
-    const PREV_W = 320;
-    const preset = ID_PREVIEW_PRESETS[opts.idPreset];
-    const cw = PREV_W;
-    const ch = Math.round((PREV_W * preset.h) / preset.w);
-    canvas.width = cw;
-    canvas.height = ch;
-    const ctx = canvas.getContext("2d")!;
-    ctx.fillStyle = opts.idBg || "#ffffff";
-    ctx.fillRect(0, 0, cw, ch);
-    const r = cropFn.current(
-      img.naturalWidth,
-      img.naturalHeight,
-      cw,
-      ch,
-      opts.idZoom,
-      opts.idOffsetX,
-      opts.idOffsetY
-    );
-    ctx.drawImage(img, r.dx, r.dy, r.dw, r.dh);
-    ctx.strokeStyle = "rgba(255,255,255,0.5)";
-    ctx.lineWidth = 1;
-    for (let i = 1; i < 3; i++) {
-      ctx.beginPath();
-      ctx.moveTo((cw * i) / 3, 0);
-      ctx.lineTo((cw * i) / 3, ch);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(0, (ch * i) / 3);
-      ctx.lineTo(cw, (ch * i) / 3);
-      ctx.stroke();
-    }
-  }, [
-    ready,
-    opts.idPreset,
-    opts.idZoom,
-    opts.idOffsetX,
-    opts.idOffsetY,
-    opts.idBg,
-    files,
-  ]);
-
-  return (
-    <div className="space-y-5">
-      {imgErr ? (
-        <p className="rounded-control border border-warning/30 bg-warning/10 p-3.5 text-[13px] text-fg-muted">
-          This image could not be previewed — it may be an unsupported format.
-        </p>
-      ) : (
-        <div className="flex justify-center">
-          <canvas
-            ref={canvasRef}
-            className="max-w-full rounded-card border border-border shadow-sm"
-            aria-label="ID photo crop preview"
-          />
-        </div>
-      )}
-
-      <div>
-        <Label className="mb-2 block text-[13px] font-medium">Size preset</Label>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {(Object.keys(ID_PREVIEW_PRESETS) as Options["idPreset"][]).map(
-            (key) => (
-              <button
-                key={key}
-                onClick={() => set("idPreset", key)}
-                className={`rounded-control border px-3.5 py-2.5 text-[13px] font-semibold transition-all ${
-                  opts.idPreset === key
-                    ? "border-ring bg-gradient-brand text-white shadow-glow"
-                    : "border-border bg-background hover:border-border-strong"
-                }`}
-              >
-                {ID_PREVIEW_PRESETS[key].label}
-              </button>
-            )
-          )}
-        </div>
-      </div>
-
-      <div>
-        <Label className="mb-2 block text-[13px] font-medium">
-          Zoom · {opts.idZoom.toFixed(2)}×
-        </Label>
-        <Slider
-          min={1}
-          max={3}
-          step={0.05}
-          value={[opts.idZoom]}
-          onValueChange={([v]) => set("idZoom", v)}
-        />
-      </div>
-      <TwoCol>
-        <div>
-          <Label className="mb-2 block text-[13px] font-medium">
-            Move left / right
-          </Label>
-          <Slider
-            min={-1}
-            max={1}
-            step={0.02}
-            value={[opts.idOffsetX]}
-            onValueChange={([v]) => set("idOffsetX", v)}
-          />
-        </div>
-        <div>
-          <Label className="mb-2 block text-[13px] font-medium">
-            Move up / down
-          </Label>
-          <Slider
-            min={-1}
-            max={1}
-            step={0.02}
-            value={[opts.idOffsetY]}
-            onValueChange={([v]) => set("idOffsetY", v)}
-          />
-        </div>
-      </TwoCol>
-
-      <TwoCol>
-        <div>
-          <Label className="mb-2 block text-[13px] font-medium">
-            Background fill (behind transparent areas)
-          </Label>
-          <div className="flex items-center gap-2.5">
-            <input
-              type="color"
-              value={opts.idBg}
-              onChange={(e) => set("idBg", e.target.value)}
-              className="h-10 w-12 cursor-pointer rounded-control border border-border bg-card p-1"
-              aria-label="Background color"
-            />
-            <span className="font-mono text-[13px] text-fg-muted">
-              {opts.idBg}
-            </span>
-          </div>
-        </div>
-        <div className="flex items-center justify-between rounded-control border border-border p-4">
-          <div>
-            <Label className="text-[13px] font-medium">
-              Add 10 × 15 cm print sheet
-            </Label>
-            <p className="mt-0.5 text-micro text-fg-faint">
-              As many copies as fit, with cut guides
-            </p>
-          </div>
-          <Switch
-            checked={opts.idSheet}
-            onCheckedChange={(v) => set("idSheet", v)}
-          />
-        </div>
-      </TwoCol>
-
-      <p className="text-[13px] leading-relaxed text-fg-faint">
-        There is no face detection — line the head up yourself with the
-        preview. Output is a 300 DPI photo on a page sized exactly to the
-        preset; print at 100% scale (“Actual size”) for exact dimensions.
-      </p>
     </div>
   );
 }

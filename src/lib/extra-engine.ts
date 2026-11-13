@@ -8,6 +8,7 @@
  */
 
 import type { EngineResult, RunCallbacks } from "./pdf-engine";
+import { IDP_PRESETS, IDP_PAPERS, idpSheetGrid } from "./id-photo-presets";
 
 export type { EngineResult, RunCallbacks };
 
@@ -1635,7 +1636,11 @@ async function runOcr(
    ================================================================ */
 
 export interface IdPhotoOptions {
-  preset: "p35x45" | "p51x51" | "p33x48" | "p30x40";
+  /** preset key from id-photo-presets (used when explicit w/h are absent) */
+  preset?: string;
+  /** exact photo size in mm (UI computes it from presets or custom inputs) */
+  w?: number;
+  h?: number;
   /** 1 = cover fit, >1 zooms in */
   zoom: number;
   /** -1..1 pan within the crop, fraction of the overflow */
@@ -1643,16 +1648,17 @@ export interface IdPhotoOptions {
   offsetY: number;
   /** background painted behind transparent areas (hex) */
   bg: string;
-  /** also emit a 10×15 cm sheet with as many copies as fit */
+  /** also emit a print sheet with as many copies as fit */
   sheet: boolean;
+  /** print sheet paper size (10×15 cm by default) */
+  paper?: IdPaperKey;
+  /** copies to place on the sheet; 0 = as many as fit */
+  copies?: number;
+  /** dashed cut guides around each copy (default on) */
+  cutGuides?: boolean;
 }
 
-const ID_PRESETS = {
-  "p35x45": { w: 35, h: 45, label: "35 × 45 mm" },
-  "p51x51": { w: 51, h: 51, label: "51 × 51 mm" },
-  "p33x48": { w: 33, h: 48, label: "33 × 48 mm" },
-  "p30x40": { w: 30, h: 40, label: "30 × 40 mm" },
-} as const;
+type IdPaperKey = keyof typeof IDP_PAPERS;
 
 const ID_PRINT_DPI = 300;
 const mmToPx = (mm: number) => Math.round((mm / 25.4) * ID_PRINT_DPI);
@@ -1679,42 +1685,141 @@ export function idPhotoCropRect(
   return { scale: s, dx, dy, dw, dh };
 }
 
+/** render the cropped photo at exactly wmm×hmm / 300 DPI as JPEG */
+export async function idPhotoPhotoBlob(
+  file: File,
+  wmm: number,
+  hmm: number,
+  zoom: number,
+  offsetX: number,
+  offsetY: number,
+  bg: string
+): Promise<Blob> {
+  const bmp = await decodeImage(file);
+  assertPixels(bmp.width, bmp.height, file.name);
+  const cw = mmToPx(wmm);
+  const ch = mmToPx(hmm);
+  const { dx, dy, dw, dh } = idPhotoCropRect(
+    bmp.width,
+    bmp.height,
+    cw,
+    ch,
+    zoom || 1,
+    offsetX || 0,
+    offsetY || 0
+  );
+  const canvas = document.createElement("canvas");
+  canvas.width = cw;
+  canvas.height = ch;
+  const ctx = canvas.getContext("2d")!;
+  ctx.fillStyle = bg || "#ffffff";
+  ctx.fillRect(0, 0, cw, ch);
+  ctx.drawImage(bmp, dx, dy, dw, dh);
+  const jpg = await canvasToBlob(canvas, "image/jpeg", 0.95);
+  bmp.close?.();
+  return jpg;
+}
+
+/** render a single print-sheet PDF (paper choice, copies, cut guides) */
+export async function idPhotoSheetBlob(
+  file: File,
+  o: {
+    wmm: number;
+    hmm: number;
+    zoom: number;
+    offsetX: number;
+    offsetY: number;
+    bg: string;
+    paper?: "10x15" | "4x6" | "a4";
+    copies?: number;
+    cutGuides?: boolean;
+  }
+): Promise<Blob> {
+  const jpg = await idPhotoPhotoBlob(
+    file,
+    o.wmm,
+    o.hmm,
+    o.zoom,
+    o.offsetX,
+    o.offsetY,
+    o.bg
+  );
+  const paper = IDP_PAPERS[o.paper ?? "10x15"];
+  const { PDFDocument, rgb } = await getPdfLib();
+  const doc = await PDFDocument.create();
+  const img = await doc.embedJpg(new Uint8Array(await jpg.arrayBuffer()));
+  const pw = mmToPt(o.wmm);
+  const ph = mmToPt(o.hmm);
+  const SW = mmToPt(paper.w);
+  const SH = mmToPt(paper.h);
+  const gap = mmToPt(3);
+  const grid = idpSheetGrid(o.wmm, o.hmm, paper.w, paper.h, 3);
+  let cols = grid.cols;
+  let rows = grid.rows;
+  // explicit copies (non-zero) shrink the grid to just what's needed
+  if (o.copies && o.copies > 0) {
+    cols = Math.min(cols, o.copies);
+    rows = Math.min(rows, Math.ceil(o.copies / cols));
+  }
+  const gridW = cols * pw + (cols - 1) * gap;
+  const gridH = rows * ph + (rows - 1) * gap;
+  const startX = (SW - gridW) / 2;
+  const startY = (SH - gridH) / 2;
+  const page = doc.addPage([SW, SH]);
+  let placed = 0;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (o.copies && o.copies > 0 && placed >= o.copies) break;
+      const x = startX + c * (pw + gap);
+      const y = SH - startY - (r + 1) * ph - r * gap;
+      page.drawImage(img, { x, y, width: pw, height: ph });
+      if (o.cutGuides !== false) {
+        page.drawRectangle({
+          x: x - 1,
+          y: y - 1,
+          width: pw + 2,
+          height: ph + 2,
+          borderWidth: 0.4,
+          borderColor: rgb(0.72, 0.73, 0.76),
+          borderDashArray: [2, 2],
+        });
+      }
+      placed++;
+    }
+    if (o.copies && o.copies > 0 && placed >= o.copies) break;
+  }
+  const saved = await doc.save({ useObjectStreams: true });
+  return pdfBlob(saved);
+}
+
 async function runIdPhoto(
   entries: { id: string; file: File }[],
   opts: IdPhotoOptions,
   cb: RunCallbacks
 ): Promise<EngineResult> {
-  const p = ID_PRESETS[opts.preset] ?? ID_PRESETS["p35x45"];
-  const cw = mmToPx(p.w);
-  const ch = mmToPx(p.h);
+  const p = (() => {
+    if (opts.w && opts.h)
+      return { w: opts.w, h: opts.h, label: `${opts.w} × ${opts.h} mm` };
+    const d =
+      IDP_PRESETS.find((x) => x.key === (opts.preset ?? "p35x45")) ??
+      IDP_PRESETS[0];
+    return { w: d.w, h: d.h, label: `${d.w} × ${d.h} mm` };
+  })();
   const outFiles: EngineResult["files"] = [];
 
   for (let i = 0; i < entries.length; i++) {
     const { id, file } = entries[i];
-    const bmp = await decodeImage(file);
-    assertPixels(bmp.width, bmp.height, file.name);
-
-    const { dx, dy, dw, dh } = idPhotoCropRect(
-      bmp.width,
-      bmp.height,
-      cw,
-      ch,
-      opts.zoom || 1,
-      opts.offsetX || 0,
-      opts.offsetY || 0
+    const jpg = await idPhotoPhotoBlob(
+      file,
+      p.w,
+      p.h,
+      opts.zoom,
+      opts.offsetX,
+      opts.offsetY,
+      opts.bg
     );
 
-    const canvas = document.createElement("canvas");
-    canvas.width = cw;
-    canvas.height = ch;
-    const ctx = canvas.getContext("2d")!;
-    ctx.fillStyle = opts.bg || "#ffffff";
-    ctx.fillRect(0, 0, cw, ch);
-    ctx.drawImage(bmp, dx, dy, dw, dh);
-    const jpg = await canvasToBlob(canvas, "image/jpeg", 0.95);
-    bmp.close?.();
-
-    const { PDFDocument, rgb } = await getPdfLib();
+    const { PDFDocument } = await getPdfLib();
     const doc = await PDFDocument.create();
 
     // page 1 — the photo at its exact physical size (prints 1:1)
@@ -1728,34 +1833,24 @@ async function runIdPhoto(
       height: ph,
     });
 
-    // page 2 (optional) — 10×15 cm sheet with as many copies as fit
+    // page 2 (optional) — the configured print sheet
     if (opts.sheet) {
-      const SW = mmToPt(100);
-      const SH = mmToPt(150);
-      const gap = mmToPt(3);
-      const cols = Math.max(1, Math.floor((SW + gap) / (pw + gap)));
-      const rows = Math.max(1, Math.floor((SH + gap) / (ph + gap)));
-      const gridW = cols * pw + (cols - 1) * gap;
-      const gridH = rows * ph + (rows - 1) * gap;
-      const startX = (SW - gridW) / 2;
-      const startY = (SH - gridH) / 2;
-      const page = doc.addPage([SW, SH]);
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          const x = startX + c * (pw + gap);
-          const y = SH - startY - (r + 1) * ph - r * gap;
-          page.drawImage(img, { x, y, width: pw, height: ph });
-          page.drawRectangle({
-            x: x - 1,
-            y: y - 1,
-            width: pw + 2,
-            height: ph + 2,
-            borderWidth: 0.4,
-            borderColor: rgb(0.72, 0.73, 0.76),
-            borderDashArray: [2, 2],
-          });
-        }
-      }
+      const sheet = await idPhotoSheetBlob(file, {
+        wmm: p.w,
+        hmm: p.h,
+        zoom: opts.zoom,
+        offsetX: opts.offsetX,
+        offsetY: opts.offsetY,
+        bg: opts.bg,
+        paper: opts.paper,
+        copies: opts.copies,
+        cutGuides: opts.cutGuides,
+      });
+      const sheetDoc = await PDFDocument.load(
+        new Uint8Array(await sheet.arrayBuffer())
+      );
+      const pages = await doc.copyPages(sheetDoc, [0]);
+      doc.addPage(pages[0]);
     }
 
     const saved = await doc.save({ useObjectStreams: true });
@@ -1772,9 +1867,10 @@ async function runIdPhoto(
   }
   cb.onOverall?.(1);
 
+  const paper = IDP_PAPERS[opts.paper ?? "10x15"];
   return {
     files: outFiles,
-    note: `${p.label} photo at 300 DPI · print at 100% scale (“Actual size”) for exact dimensions${opts.sheet ? " · the sheet fits 10×15 cm paper with cut guides" : ""}`,
+    note: `${p.label} photo at 300 DPI · print at 100% scale (“Actual size”) for exact dimensions${opts.sheet ? ` · ${paper.label} sheet with cut guides` : ""}`,
   };
 }
 

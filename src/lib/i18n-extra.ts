@@ -10,7 +10,7 @@ const pt: Copy = {
     tools: "Ferramentas",
     blog: "Blog",
     search: "Pesquisar",
-    privacy: "0 bytes enviados",
+    privacy: "Nada sai do seu dispositivo",
   },
   mega: {
     aria: "Todas as ferramentas, por categoria",
@@ -175,7 +175,7 @@ const hi: Copy = {
     tools: "टूल्स",
     blog: "ब्लॉग",
     search: "खोजें",
-    privacy: "0 बाइट अपलोड हुए",
+    privacy: "कुछ भी डिवाइस से बाहर नहीं जाता",
   },
   mega: {
     aria: "सभी टूल्स, श्रेणी के अनुसार",
@@ -340,7 +340,7 @@ const ur: Copy = {
     tools: "ٹولز",
     blog: "بلاگ",
     search: "تلاش",
-    privacy: "0 بائٹس اپ لوڈ ہوئے",
+    privacy: "کچھ بھی ڈیوائس سے باہر نہیں جاتا",
   },
   mega: {
     aria: "تمام ٹولز، زمرہ وار",
@@ -505,7 +505,7 @@ const ar: Copy = {
     tools: "الأدوات",
     blog: "المدونة",
     search: "بحث",
-    privacy: "0 بايت مرفوعة",
+    privacy: "لا شيء يغادر جهازك",
   },
   mega: {
     aria: "كل الأدوات، بحسب الفئة",

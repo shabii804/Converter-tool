@@ -28,7 +28,7 @@ export function ShareButton({ title, url }: { title: string; url: string }) {
   return (
     <button
       onClick={onShare}
-      className="ml-auto inline-flex min-h-9 items-center gap-1.5 rounded-chip border border-border px-3 text-[12px] font-semibold text-fg-muted outline-none transition-colors hover:border-border-strong hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+      className="ml-auto inline-flex min-h-11 items-center gap-1.5 rounded-chip border border-border px-3 text-[12px] font-semibold text-fg-muted outline-none transition-colors hover:border-border-strong hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
       aria-label={`${t.share.label}: ${title}`}
     >
       {copied ? <Check className="size-3.5 text-success" aria-hidden="true" /> : <Share2 className="size-3.5" aria-hidden="true" />}

@@ -43,7 +43,7 @@ const en = {
     tools: "Tools",
     blog: "Blog",
     search: "Search",
-    privacy: "0 bytes uploaded",
+    privacy: "Nothing leaves your device",
   },
   mega: {
     aria: "All tools, grouped by category",
@@ -210,7 +210,7 @@ const es: Copy = {
     tools: "Herramientas",
     blog: "Blog",
     search: "Buscar",
-    privacy: "0 bytes subidos",
+    privacy: "Nada sale de tu dispositivo",
   },
   mega: {
     aria: "Todas las herramientas, por categoría",
@@ -375,7 +375,7 @@ const fr: Copy = {
     tools: "Outils",
     blog: "Blog",
     search: "Rechercher",
-    privacy: "0 octet envoyé",
+    privacy: "Rien ne quitte votre appareil",
   },
   mega: {
     aria: "Tous les outils, par catégorie",

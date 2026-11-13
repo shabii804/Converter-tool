@@ -15,6 +15,49 @@
 body.font-script-enabled {
   font-family: var(--font-script), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
+
+/* ---------- ID Photo one-page tool (components/id-photo-tool.tsx) ----------
+   Page-scoped design tokens: 8-pt spacing scale, brief type scale
+   (H1 36/44 desktop · 28/36 mobile; labels 14/20 600; body 16/24;
+   helper 13/20), 1120px container, 16px card pad (24px ≥1024px).
+   Colors come from the shared theme tokens above. */
+.idp {
+  --idp-card-pad: 16px;
+  --idp-radius: 16px;
+  --idp-h1-size: 28px;
+  --idp-h1-lh: 36px;
+  --idp-label-size: 14px;
+  --idp-label-lh: 20px;
+  --idp-body-size: 16px;
+  --idp-body-lh: 24px;
+  --idp-help-size: 13px;
+  --idp-help-lh: 20px;
+}
+@media (min-width: 1024px) {
+  .idp {
+    --idp-card-pad: 24px;
+    --idp-h1-size: 36px;
+    --idp-h1-lh: 44px;
+  }
+}
+.idp-h1 {
+  font-size: var(--idp-h1-size);
+  line-height: var(--idp-h1-lh);
+  font-weight: 700;
+}
+.idp-label {
+  font-size: var(--idp-label-size);
+  line-height: var(--idp-label-lh);
+  font-weight: 600;
+}
+.idp-body {
+  font-size: var(--idp-body-size);
+  line-height: var(--idp-body-lh);
+}
+.idp-help {
+  font-size: var(--idp-help-size);
+  line-height: var(--idp-help-lh);
+}
 /* tighter tracking harms connected scripts */
 html[dir="rtl"] .tracking-heading,
 html[dir="rtl"] .tracking-tight,

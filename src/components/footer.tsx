@@ -15,24 +15,22 @@ const POPULAR_IDS = ["merge", "split", "compress", "jpg-to-pdf", "pdf-to-word", 
 export function Footer() {
   const nav = useToolNav();
   const localeHref = useLocaleHref();
-  const goHome = useStore((s) => s.goHome);
   const setToolFilter = useStore((s) => s.setToolFilter);
-  const view = useStore((s) => s.view);
   const t = useCopy();
 
-  const goCategory = (cat: ToolCategory) => {
-    setToolFilter(cat);
-    if (view !== "home") goHome();
-    setTimeout(() => {
-      document.getElementById("tools")?.scrollIntoView({ behavior: "smooth" });
-    }, 60);
-  };
-
-  const scrollTo = (id: string) => {
-    if (view !== "home") goHome();
-    setTimeout(() => {
-      document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
-    }, 60);
+  /* real-link navigation swaps the SPA to the home view — retry the
+     section scroll until the home content has mounted */
+  const scrollToSection = (id: string) => {
+    const t0 = performance.now();
+    const tryScroll = () => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth" });
+      } else if (performance.now() - t0 < 1200) {
+        setTimeout(tryScroll, 120);
+      }
+    };
+    setTimeout(tryScroll, 120);
   };
 
   const linkCls =
@@ -76,7 +74,7 @@ export function Footer() {
           </ul>
         </nav>
 
-        {/* categories */}
+        {/* categories — real links to the tools grid (filter pre-selected) */}
         <nav aria-label={t.footer.cats}>
           <p className="text-[12px] font-bold uppercase tracking-wide text-fg-faint">
             {t.footer.cats}
@@ -84,9 +82,13 @@ export function Footer() {
           <ul className="mt-3 space-y-0.5">
             {CAT_ORDER.map((cat) => (
               <li key={cat}>
-                <button onClick={() => goCategory(cat)} className={linkCls}>
+                <Link
+                  href={`${localeHref("/")}#tools`}
+                  onClick={() => setToolFilter(cat)}
+                  className={linkCls}
+                >
                   {t.cats[cat]}
-                </button>
+                </Link>
               </li>
             ))}
           </ul>
@@ -104,14 +106,24 @@ export function Footer() {
               </Link>
             </li>
             <li>
-              <button onClick={() => scrollTo("faq")} className={linkCls}>
+              {/* real anchor URLs — shareable, crawlable; the SPA switches to
+                  the home view via AppShell, then we scroll to the section */}
+              <Link
+                href={`${localeHref("/")}#faq`}
+                className={linkCls}
+                onClick={() => scrollToSection("faq")}
+              >
                 {t.footer.faq}
-              </button>
+              </Link>
             </li>
             <li>
-              <button onClick={() => scrollTo("how")} className={linkCls}>
+              <Link
+                href={`${localeHref("/")}#how`}
+                className={linkCls}
+                onClick={() => scrollToSection("how")}
+              >
                 {t.footer.how}
-              </button>
+              </Link>
             </li>
             <li>
               <Link href={localeHref("/design")} className={linkCls}>

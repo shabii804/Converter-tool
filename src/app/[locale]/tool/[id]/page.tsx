@@ -20,24 +20,34 @@ export async function generateMetadata({
   const { locale, id } = await params;
   const tool = toolById(id);
   if (!tool || !isLocale(locale)) return {};
+  /* search engines: short description (<160 chars) + tool-specific
+     keywords where provided, honest generic fallbacks otherwise */
+  const description =
+    tool.metaDescription ??
+    `${tool.tagline} — ${tool.description}`.slice(0, 160);
   return {
     title: `${tool.name} — Free, Private, 100% In Your Browser`,
-    description: `${tool.description} Runs entirely on your device — no uploads, no sign-up, works offline.`,
+    description,
+    keywords: tool.metaKeywords,
     alternates: {
       canonical: canonicalUrl(locale as Lang, `/tool/${tool.id}`),
       languages: localeAlternates(`/tool/${tool.id}`),
     },
     openGraph: {
       title: `${tool.name} | SwiftPDF`,
-      description: tool.description,
+      description,
       url: canonicalUrl(locale as Lang, `/tool/${tool.id}`),
       type: "website",
-      images: [{ url: "/og.png", width: 1200, height: 630, alt: `${tool.name} — SwiftPDF` }],
+      /* resolved against metadataBase (NEXT_PUBLIC_SITE_URL) — never localhost
+         in production when the env var is set */
+      images: [
+        { url: "/og.png", width: 1200, height: 630, alt: `${tool.name} — SwiftPDF` },
+      ],
     },
     twitter: {
       card: "summary_large_image",
       title: `${tool.name} | SwiftPDF`,
-      description: tool.description,
+      description,
       images: ["/og.png"],
     },
   };

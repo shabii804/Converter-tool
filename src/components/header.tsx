@@ -220,10 +220,11 @@ export function Header() {
             size="md"
             onClick={() => setPalette(true)}
             aria-label={`${t.nav.search} (Ctrl+K)`}
-            className="rounded-chip px-2 sm:px-4"
+            className="rounded-chip px-2.5 sm:px-4"
           >
             <Search aria-hidden="true" />
-            <span className="max-w-[72px] truncate text-[13px] sm:max-w-none sm:text-sm">
+            {/* icon-only on phones — less header clutter, text from sm up */}
+            <span className="hidden truncate text-[13px] sm:inline sm:text-sm">
               {t.nav.search}
             </span>
             <kbd className="hidden h-5 items-center rounded border border-border bg-surface-3 px-1.5 font-mono text-[10px] text-fg-muted lg:inline-flex">
