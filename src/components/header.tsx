@@ -113,7 +113,7 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-border-subtle bg-background/80 backdrop-blur-xl">
-      <div className="mx-auto flex h-16 max-w-6xl items-center gap-1.5 px-3 sm:gap-2.5 sm:px-6">
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-1.5 px-3 sm:gap-2.5 sm:px-6">
         <button
           onClick={() => {
             goHome();

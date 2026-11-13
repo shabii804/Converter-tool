@@ -373,7 +373,7 @@ export function Workspace({
   const hasLargeFile = files.some((f) => f.size > LARGE_FILE_BYTES);
 
   return (
-    <section className="mx-auto max-w-6xl px-4 pb-10 pt-8 sm:px-6">
+    <section className="mx-auto max-w-7xl px-4 pb-10 pt-8 sm:px-6">
       {/* tool header */}
       {!hideHeader && (
       <div className="mb-8 flex items-center gap-3.5">

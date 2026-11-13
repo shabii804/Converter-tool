@@ -52,7 +52,7 @@ export function HomeSections() {
   return (
     <>
       {/* ---------- How it works ---------- */}
-      <section id="how" className="mx-auto max-w-6xl scroll-mt-20 px-4 pb-6 pt-6 sm:px-6 sm:pt-10">
+      <section id="how" className="mx-auto max-w-7xl scroll-mt-20 px-4 pb-6 pt-6 sm:px-6 sm:pt-10">
         <motion.div {...rise()}>
           <Eyebrow>{t.how.eyebrow}</Eyebrow>
           <h2 className="mt-2 text-h2 font-bold tracking-heading">{t.how.title}</h2>
@@ -90,7 +90,7 @@ export function HomeSections() {
       </section>
 
       {/* ---------- Why on-device ---------- */}
-      <section id="why" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-14 sm:px-6 sm:py-20">
+      <section id="why" className="mx-auto max-w-7xl scroll-mt-20 px-4 py-14 sm:px-6 sm:py-20">
         <div className="grid items-center gap-10 lg:grid-cols-[1.05fr_1fr]">
           <motion.div {...rise()}>
             <Eyebrow>{t.why.eyebrow}</Eyebrow>
@@ -135,7 +135,7 @@ export function HomeSections() {
       </section>
 
       {/* ---------- Honest comparison ---------- */}
-      <section id="compare" className="mx-auto max-w-6xl scroll-mt-20 px-4 pb-14 sm:px-6 sm:pb-20">
+      <section id="compare" className="mx-auto max-w-7xl scroll-mt-20 px-4 pb-14 sm:px-6 sm:pb-20">
         <motion.div {...rise()}>
           <Eyebrow>{t.cmp.eyebrow}</Eyebrow>
           <h2 className="mt-2 text-h2 font-bold tracking-heading">{t.cmp.title}</h2>
@@ -205,7 +205,7 @@ export function HomeSections() {
       </section>
 
       {/* ---------- Final CTA ---------- */}
-      <section className="mx-auto max-w-6xl px-4 pb-20 sm:px-6">
+      <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6">
         <motion.div
           {...rise()}
           className="relative overflow-hidden rounded-card bg-gradient-brand px-6 py-12 text-center shadow-glow sm:px-12 sm:py-16"

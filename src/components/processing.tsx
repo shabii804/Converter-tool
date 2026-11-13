@@ -26,7 +26,7 @@ export function Processing() {
       : 0.05;
 
   return (
-    <section className="mx-auto flex max-w-6xl flex-col items-center px-4 py-20 sm:px-6 sm:py-28">
+    <section className="mx-auto flex max-w-7xl flex-col items-center px-4 py-20 sm:px-6 sm:py-28">
       <div className="relative">
         <ProgressRing value={overall} size={132} stroke={10}>
           <span className="text-2xl font-bold">{Math.round(overall * 100)}%</span>

@@ -125,7 +125,7 @@ export default function DesignPage() {
         {/* page hero */}
         <div className="relative overflow-hidden border-b border-border-subtle">
           <MeshBackdrop />
-          <div className="relative mx-auto max-w-6xl px-4 py-16 sm:px-6">
+          <div className="relative mx-auto max-w-7xl px-4 py-16 sm:px-6">
             <p className="text-micro font-bold uppercase tracking-widest text-primary">
               Design system · v1
             </p>
@@ -153,7 +153,7 @@ export default function DesignPage() {
           </div>
         </div>
 
-        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6">
           {/* COLORS */}
           <Section
             id="colors"

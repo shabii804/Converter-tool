@@ -90,7 +90,7 @@
   /* ---- layout (8px grid) ---- */
   --space-section: 64px;
   --space-card: 24px;
-  --container: 1152px;
+  --container: 1280px;
 
   /* shadcn compat */
   --sidebar: var(--surface-1);

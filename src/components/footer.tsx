@@ -86,7 +86,7 @@ export function Footer() {
       <div aria-hidden="true" className="h-px bg-gradient-brand opacity-30" />
 
       <div className="bg-surface-1/60">
-        <div className="mx-auto grid max-w-6xl grid-cols-2 gap-x-6 gap-y-10 px-4 py-12 sm:px-6 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
+        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-x-6 gap-y-10 px-4 py-12 sm:px-6 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
           {/* brand + language (desktop) */}
           <div className="col-span-2 lg:col-span-1">
             <div className="flex items-center gap-2.5">
@@ -192,7 +192,7 @@ export function Footer() {
         </div>
 
         <div className="border-t border-border-subtle">
-          <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-6 text-micro text-fg-faint sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-6">
+          <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-6 text-micro text-fg-faint sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
               <p>{t.footer.copyright}</p>
               <InstallAppButton />

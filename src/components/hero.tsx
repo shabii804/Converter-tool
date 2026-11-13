@@ -57,7 +57,7 @@ export function Hero() {
   return (
     <section className="relative overflow-hidden">
       <MeshBackdrop />
-      <div className="relative mx-auto max-w-6xl px-4 pb-2 pt-8 sm:px-6 sm:pt-12">
+      <div className="relative mx-auto max-w-7xl px-4 pb-2 pt-8 sm:px-6 sm:pt-12">
         <div className="mx-auto max-w-3xl text-center">
           <p className="mb-4 flex items-center justify-center gap-1.5 text-xs font-semibold text-fg-muted sm:text-[13px]">
             <Sparkles className="size-3.5 text-primary" aria-hidden="true" />
