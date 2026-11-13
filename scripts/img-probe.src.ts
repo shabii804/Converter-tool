@@ -1,95 +1,18 @@
 /**
- * Image-probe harness — builds a PDF with images at KNOWN pdf-lib positions,
- * then reads them back through pdf.js getOperatorList and prints the rects
- * the op-list walk produces, so the coordinate space can be pinned down.
- * Exposed as window.probe().
+ * Image-probe harness — takes PDF bytes, walks getOperatorList() and dumps
+ * every image op: the objId, where the object lives, its runtime shape
+ * (bitmap vs data/kind) and the CTM rect. Pinpoints why an image class
+ * (e.g. DCTDecode JPEG) is dropped by the pdf-to-word extractor.
+ * Exposed as window.probe(bytes).
  */
 import "../src/lib/compat-shims";
 import * as pdfjs from "pdfjs-dist";
 
 pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 
-/* a 40x20 red-ish PNG with a blue border, drawn via canvas */
-function makePngDataUrl(): string {
-  const c = document.createElement("canvas");
-  c.width = 80;
-  c.height = 40;
-  const ctx = c.getContext("2d")!;
-  ctx.fillStyle = "#e11d48";
-  ctx.fillRect(0, 0, 80, 40);
-  ctx.fillStyle = "#1d4ed8";
-  ctx.fillRect(6, 6, 68, 28);
-  return c.toDataURL("image/png");
-}
-
-async function dataUrlToBytes(url: string): Promise<Uint8Array> {
-  const bin = atob(url.split(",")[1]);
-  const buf = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
-  return buf;
-}
-
-async function b64ToBytes(b64: string): Promise<Uint8Array> {
-  const bin = atob(b64);
-  const buf = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
-  return buf;
-}
-
-/* dump text runs of a served PDF (base64-free: fetched by URL) */
-(window as any).probeFile = async (url: string) => {
-  const buf = await (await fetch(url)).arrayBuffer();
-  const read = await pdfjs.getDocument({ data: new Uint8Array(buf) }).promise;
+(window as any).probe = async (bytes: Uint8Array) => {
+  const read = await pdfjs.getDocument({ data: bytes.slice() }).promise;
   const pg = await read.getPage(1);
-  const tc = await pg.getTextContent();
-  return (tc.items as any[])
-    .filter((it) => it.str && it.str.trim())
-    .map((it) => ({
-      str: it.str.slice(0, 30),
-      x: +it.transform[4].toFixed(2),
-      y: +it.transform[5].toFixed(2),
-      w: +it.width.toFixed(2),
-      size: +Math.hypot(it.transform[0], it.transform[1]).toFixed(2),
-    }));
-};
-
-(window as any).probe = async () => {
-  /* 1. build fixture with known placements */
-  const { PDFDocument } = await import("@cantoo/pdf-lib");
-  const doc = await PDFDocument.create();
-  const page = doc.addPage([595.28, 841.89]);
-  const pngBytes = await dataUrlToBytes(makePngDataUrl());
-  const img = await doc.embedPng(pngBytes);
-
-  /* known placements in PDF user space (origin bottom-left, y up) */
-  const PLACEMENTS = [
-    { x: 100, y: 600, w: 200, h: 150 },
-    { x: 60, y: 350, w: 120, h: 90 },
-  ];
-  for (const p of PLACEMENTS)
-    page.drawImage(img, { x: p.x, y: p.y, width: p.w, height: p.h });
-  page.drawText("Probe paragraph before images", {
-    x: 72,
-    y: 780,
-    size: 12,
-  });
-
-  const pdfBytes = await doc.save();
-
-  /* 2. read back through pdf.js */
-  const read = await pdfjs.getDocument({ data: pdfBytes }).promise;
-  const pg = await read.getPage(1);
-
-  const tc = await pg.getTextContent();
-  const textItems = (tc.items as any[])
-    .filter((it) => it.str && it.str.trim())
-    .map((it) => ({
-      str: it.str,
-      x: +it.transform[4].toFixed(2),
-      y: +it.transform[5].toFixed(2),
-      w: +it.width.toFixed(2),
-      size: +Math.hypot(it.transform[0], it.transform[1]).toFixed(2),
-    }));
 
   const opList = await pg.getOperatorList();
   const OPS = pdfjs.OPS;
@@ -110,18 +33,24 @@ async function b64ToBytes(b64: string): Promise<Uint8Array> {
   let ctm = [1, 0, 0, 1, 0, 0];
   const stack: number[][] = [];
   const rects: any[] = [];
+  const opHistogram: Record<string, number> = {};
 
   for (let i = 0; i < opList.fnArray.length; i++) {
     const fn = opList.fnArray[i];
     const args = opList.argsArray[i] as any;
+    const opName = (OPS as any)[fn] ?? String(fn);
+    opHistogram[opName] = (opHistogram[opName] ?? 0) + 1;
     if (fn === OPS.save) stack.push([...ctm]);
     else if (fn === OPS.restore) ctm = stack.pop() ?? [1, 0, 0, 1, 0, 0];
     else if (fn === OPS.transform) ctm = mul(ctm, args as number[]);
     else if (fn === OPS.setTransform) ctm = [...(args as number[])];
-    else if (fn === OPS.paintImageXObject || fn === OPS.paintJpegXObject) {
-      const objId = args[0];
+    else if (
+      fn === OPS.paintImageXObject || fn === OPS.paintJpegXObject ||
+      fn === OPS.paintImageMaskXObject || fn === (OPS as any).paintImageXObjectRepeat
+    ) {
+      const objId = String(args[0]);
       let obj: any = null;
-      let src = "";
+      let src = "not-found";
       try {
         if (pg.commonObjs.has(objId)) {
           obj = pg.commonObjs.get(objId);
@@ -140,6 +69,7 @@ async function b64ToBytes(b64: string): Promise<Uint8Array> {
       const xs = [p00.x, p10.x, p01.x, p11.x];
       const ys = [p00.y, p10.y, p01.y, p11.y];
       rects.push({
+        op: opName,
         objId,
         src,
         ctm: ctm.map((v) => +v.toFixed(3)),
@@ -153,11 +83,13 @@ async function b64ToBytes(b64: string): Promise<Uint8Array> {
         width: obj?.width,
         height: obj?.height,
         hasBitmap: !!obj?.bitmap,
+        bitmapW: obj?.bitmap?.width,
         hasData: !!obj?.data,
+        dataLen: obj?.data?.length,
         kind: obj?.kind,
       });
     }
   }
 
-  return { textItems, rects, expected: PLACEMENTS, opsCount: opList.fnArray.length };
+  return { rects, opsCount: opList.fnArray.length, opHistogram };
 };
