@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   MousePointer2,
   Type as TypeIcon,
+  TextCursorInput,
   Highlighter,
   Square,
   Circle,
@@ -73,6 +74,8 @@ const HIGHLIGHT_COLOR = "#FDE047";
 /** per-tool instruction shown under the toolbar */
 const TOOL_HINTS: Record<string, string> = {
   select: "Tap an item to select it — drag to move, corner handle to resize.",
+  edittext:
+    "Click any word on the page: it is covered and the same text is placed for you — type the replacement in the panel below and it keeps the original spot, size and line.",
   text: "Click anywhere on the page to place a text box, then type in the panel below.",
   whiteout:
     "Drag over existing text to cover it, then place your own text on top. Covers only — the content stays in the file; use Redact PDF to remove it for good.",
@@ -128,6 +131,15 @@ interface PageMeta {
   height1: number;
 }
 
+/** one text run extracted from the page content stream (PDF user space) */
+interface PageTextItem {
+  str: string;
+  x: number;
+  y: number;
+  w: number;
+  size: number;
+}
+
 export function AnnotationEditor({
   file,
   mode,
@@ -144,7 +156,7 @@ export function AnnotationEditor({
   const [items, setItems] = useState<EditorItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tool, setTool] = useState<
-    "select" | "text" | "whiteout" | "highlight" | "rect" | "ellipse" | "line" | "draw" | "image" | "sig" | "redact"
+    "select" | "edittext" | "text" | "whiteout" | "highlight" | "rect" | "ellipse" | "line" | "draw" | "image" | "sig" | "redact"
   >(mode === "redact" ? "redact" : mode === "sign" ? "sig" : "select");
   const [color, setColor] = useState(mode === "redact" ? "#000000" : "#1D4ED8");
   const [renderScale, setRenderScale] = useState(0); // 0 = not computed yet
@@ -160,6 +172,7 @@ export function AnnotationEditor({
   const docRef = useRef<any>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const textCacheRef = useRef<Map<number, PageTextItem[]>>(new Map());
   const dragRef = useRef<null | {
     id: string;
     startV: { x: number; y: number };
@@ -183,6 +196,7 @@ export function AnnotationEditor({
     setItems([]);
     setSelectedId(null);
     setPageIndex(0);
+    textCacheRef.current = new Map();
     (async () => {
       try {
         const pdfjs = await import("pdfjs-dist");
@@ -509,6 +523,119 @@ export function AnnotationEditor({
     };
   }
 
+  /* ---------- edit original text (click-to-edit) ---------- */
+  /** extract the page's text runs once, on first use, and cache them */
+  const ensurePageText = useCallback(async (pageIdx: number): Promise<PageTextItem[]> => {
+    const cached = textCacheRef.current.get(pageIdx);
+    if (cached) return cached;
+    const doc = docRef.current;
+    if (!doc) return [];
+    try {
+      const page = await doc.getPage(pageIdx + 1);
+      const tc = await page.getTextContent();
+      const out: PageTextItem[] = [];
+      for (const it of tc.items as any[]) {
+        if (!it.str || !it.str.trim()) continue;
+        const size = Math.hypot(it.transform[0], it.transform[1]);
+        if (!size) continue;
+        out.push({
+          str: it.str,
+          x: it.transform[4],
+          y: it.transform[5],
+          w: it.width || it.str.length * size * 0.5,
+          size,
+        });
+      }
+      textCacheRef.current.set(pageIdx, out);
+      return out;
+    } catch {
+      textCacheRef.current.set(pageIdx, []);
+      return [];
+    }
+  }, []);
+
+  /** the text run under a PDF-space point, if any — strict glyph-box hit
+      first, then a forgiving nearest-line pass so near-misses still land */
+  const findTextAt = (runs: PageTextItem[], p: { x: number; y: number }) => {
+    let best: PageTextItem | null = null;
+    let bestGap = Infinity;
+    for (const t of runs) {
+      if (p.x < t.x - 1 || p.x > t.x + t.w + 1) continue;
+      if (p.y < t.y - t.size * 0.3 || p.y > t.y + t.size * 0.95) continue;
+      const gap = Math.abs(p.y - t.y);
+      if (gap < bestGap) {
+        bestGap = gap;
+        best = t;
+      }
+    }
+    if (best) return best;
+    for (const t of runs) {
+      if (p.x < t.x - 1 || p.x > t.x + t.w + 1) continue;
+      const dy = p.y - t.y;
+      if (dy < -t.size * 0.75 || dy > t.size * 1.05) continue;
+      const gap = Math.abs(dy);
+      if (gap < bestGap) {
+        bestGap = gap;
+        best = t;
+      }
+    }
+    return best;
+  };
+
+  /** Edit-text tool: cover the clicked run with whiteout and place the same
+      text at the same baseline, pre-filled in the inspector for retyping.
+      The replacement keeps the original position and size, so the saved
+      text lands exactly where the old text was. */
+  const editOriginalText = useCallback(
+    async (v: { x: number; y: number }) => {
+      const p = toPdf(v.x, v.y);
+      const runs = await ensurePageText(pageIndex);
+      const t = findTextAt(runs, p);
+      if (!t) {
+        notify.error(
+          "No editable text under that click — this page may be a scan or an image. Use Whiteout to cover content instead."
+        );
+        return;
+      }
+      const pad = Math.max(1, t.size * 0.06);
+      const angle = viewAngleDeg(p);
+      const cover: EditorItem = {
+        id: uid(),
+        page: pageIndex,
+        kind: "whiteout",
+        x: t.x - pad,
+        y: t.y - t.size * 0.25 - pad,
+        w: t.w + pad * 2,
+        h: t.size * 1.15 + pad * 2,
+        fill: "#FFFFFF",
+      };
+      const txt: EditorItem = {
+        id: uid(),
+        page: pageIndex,
+        kind: "text",
+        x: t.x,
+        y: t.y,
+        text: t.str,
+        size: Math.round(t.size * 10) / 10,
+        color: "#111827",
+        font: "helvetica",
+        rotate: angle,
+      };
+      addItems([cover, txt]);
+      setSelectedId(txt.id);
+      setTool("select");
+      setTimeout(() => {
+        const ta = document.getElementById("ann-text") as HTMLTextAreaElement | null;
+        if (ta) {
+          ta.focus();
+          ta.select();
+        }
+      }, 80);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pageIndex, toPdf, viewAngleDeg, ensurePageText, addItems]
+  );
+
   const onPointerDown = (e: React.PointerEvent) => {
     if (loading || !meta) return;
     const v = pointerPos(e);
@@ -523,6 +650,10 @@ export function AnnotationEditor({
           /* capture is best-effort — synthetic/automation pointers have no active id */
         }
       }
+      return;
+    }
+    if (tool === "edittext") {
+      void editOriginalText(v);
       return;
     }
     if (tool === "text") {
@@ -809,6 +940,7 @@ export function AnnotationEditor({
           ] as const)
         : ([
             { id: "select", icon: MousePointer2, label: "Select / move" },
+            { id: "edittext", icon: TextCursorInput, label: "Edit text" },
             { id: "text", icon: TypeIcon, label: "Add text" },
             { id: "whiteout", icon: Eraser, label: "Whiteout" },
             { id: "highlight", icon: Highlighter, label: "Highlight" },
@@ -842,7 +974,7 @@ export function AnnotationEditor({
                   setSigModalOpen(true);
                   setTool("select");
                 } else {
-                  setTool(t.id);
+                  setTool(t.id as any);
                 }
               }}
               aria-pressed={tool === t.id && t.id !== "sig"}
