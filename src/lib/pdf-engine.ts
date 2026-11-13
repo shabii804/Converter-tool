@@ -526,6 +526,7 @@ async function runPdfToWord(
     w: number;
     bold: boolean;
     italic: boolean;
+    font: string;
     str: string;
   };
   type Line = {
@@ -540,12 +541,15 @@ async function runPdfToWord(
     heading: boolean;
     centered: boolean;
     rightAligned: boolean;
+    endsAtRight: boolean;
+    font: string;
   };
   type RRun = {
     text: string;
     bold: boolean;
     italic: boolean;
     size: number;
+    font: string;
     tabBefore: boolean;
   };
 
@@ -573,7 +577,25 @@ async function runPdfToWord(
     const clean = name.replace(/^[A-Z]{6}\+/, "");
     if (!bold) bold = /bold|black|heavy/i.test(clean);
     if (!italic) italic = /italic|oblique/i.test(clean);
-    return { bold, italic };
+    return { bold, italic, name: clean };
+  };
+
+  /* map the PDF's embedded font to a Word font with similar metrics. Word's
+     default (Calibri) has different widths than most PDF fonts, so reflowed
+     lines wrapped at different words and the text column visibly drifted —
+     matching the family keeps the original line breaks and alignment */
+  const wordFontFor = (raw: string): string => {
+    const clean = String(raw || "").replace(/^[A-Z]{6}\+/, "");
+    if (/times|georgia|garamond|book|serif|roman|constantia/i.test(clean))
+      return "Times New Roman";
+    if (/courier|mono/i.test(clean)) return "Courier New";
+    if (/cambria/i.test(clean)) return "Cambria";
+    if (/calibri|carlito/i.test(clean)) return "Calibri";
+    if (/comic/i.test(clean)) return "Comic Sans MS";
+    if (/verdana|dejavu/i.test(clean)) return "Verdana";
+    if (/tahoma/i.test(clean)) return "Tahoma";
+    if (/impact/i.test(clean)) return "Impact";
+    return "Arial";
   };
 
   /* visual line: parts joined gap-aware; wide gaps (table columns) become
@@ -596,6 +618,7 @@ async function runPdfToWord(
     const size = Math.max(...parts.map((p) => p.size));
     const boldAll =
       parts.every((p) => p.bold) && text.replace(/\s/g, "").length >= 2;
+    const fonts = [...new Set(parts.map((p) => p.font).filter(Boolean))];
     return {
       y: parts[0].y,
       x0,
@@ -608,6 +631,8 @@ async function runPdfToWord(
       heading: false,
       centered: false,
       rightAligned: false,
+      endsAtRight: false,
+      font: fonts.length === 1 ? fonts[0] : "",
     };
   };
 
@@ -638,14 +663,23 @@ async function runPdfToWord(
     const leftMargin = body.length ? mode(body.map((l) => Math.round(l.x0))) : Math.min(...lines.map((l) => l.x0));
     const bodyRight = body.length ? median(body.map((l) => l.x1)) : Math.max(...lines.map((l) => l.x1));
     const pageRight = Math.max(...lines.map((l) => l.x1));
-    return { bodySize, leftMargin, bodyRight, pageRight };
+    /* right edge of the text column, robust against outliers: page numbers,
+       headers and wide table cells can push the raw max far past the column,
+       which made genuinely centered lines look left-shifted (their right gap
+       inflated) and right-aligned lines lose the alignment entirely */
+    const xs = (body.length ? body : lines)
+      .map((l) => l.x1)
+      .sort((a, b) => b - a);
+    const topQ = xs.slice(0, Math.max(1, Math.ceil(xs.length * 0.25)));
+    const columnRight = Math.max(median(topQ), bodyRight);
+    return { bodySize, leftMargin, bodyRight, pageRight, columnRight };
   };
 
   const classify = (lines: Line[], pageW: number) => {
     const m = metricsFor(lines);
     for (const l of lines) {
       const leftGap = l.x0 - m.leftMargin;
-      const rightGap = m.pageRight - l.x1;
+      const rightGap = m.columnRight - l.x1;
       l.centered =
         Math.abs(leftGap - rightGap) <= Math.max(6, l.size * 0.4) &&
         leftGap > l.size * 0.8 &&
@@ -653,7 +687,16 @@ async function runPdfToWord(
       l.rightAligned =
         !l.centered &&
         rightGap <= Math.max(3, l.size) &&
-        leftGap > (m.bodyRight - m.leftMargin) * 0.25;
+        leftGap > (m.columnRight - m.leftMargin) * 0.25;
+      /* body line that starts on the margin and ends flush at the column
+         edge: the signature of justified text (every non-final line of a
+         justified paragraph is stretched to the same right edge) */
+      l.endsAtRight =
+        !l.centered &&
+        !l.rightAligned &&
+        l.x1 - l.x0 > (m.columnRight - m.leftMargin) * 0.35 &&
+        l.x0 <= m.leftMargin + Math.max(2, l.size * 0.5) &&
+        l.x1 >= m.columnRight - Math.max(2, l.size * 0.35);
       l.heading =
         (l.boldAll && l.size >= m.bodySize * 1.12) ||
         l.size >= m.bodySize * 1.45;
@@ -677,11 +720,16 @@ async function runPdfToWord(
   };
 
   const canJoin = (a: Line, b: Line, m: ReturnType<typeof metricsFor>) => {
-    if (a.heading || b.heading || a.centered || b.centered) return false;
-    if (a.rightAligned || b.rightAligned || b.bullet) return false;
+    if (a.heading || b.heading || a.rightAligned || b.rightAligned || b.bullet)
+      return false;
     const gap = a.y - b.y;
     const pitch = Math.max(a.size, b.size) * 1.25;
     if (gap > pitch * 1.75 || gap < pitch * 0.5) return false;
+    /* consecutive centered lines of the same size are one centered
+       paragraph — a two-line centered title used to become two loose
+       paragraphs; joining keeps them one centered block in Word */
+    if (a.centered || b.centered)
+      return a.centered && b.centered && Math.abs(a.size - b.size) < 0.4;
     const full = a.x1 >= m.bodyRight - Math.max(2, a.size);
     const hyph = /[-\u2010\u2011]$/.test(a.text.trimEnd());
     const lower =
@@ -706,6 +754,7 @@ async function runPdfToWord(
         last.bold === p.bold &&
         last.italic === p.italic &&
         Math.abs(last.size - p.size) < 0.4 &&
+        last.font === p.font &&
         !tabBefore
       )
         last.text += p.str;
@@ -715,6 +764,7 @@ async function runPdfToWord(
           bold: p.bold,
           italic: p.italic,
           size: p.size,
+          font: p.font,
           tabBefore,
         });
       prevEnd = p.x + p.w;
@@ -1072,6 +1122,7 @@ async function runPdfToWord(
           w: item.width || item.str.length * size * 0.5,
           bold: flags.bold,
           italic: flags.italic,
+          font: flags.name,
           str: item.str,
         });
       }
@@ -1217,6 +1268,7 @@ async function runPdfToWord(
                   bold: false,
                   italic: false,
                   size: Math.max(para[li - 1].size, para[li].size),
+                  font: para[li - 1].font || para[li].font || "",
                   tabBefore: false,
                 });
               runs.push(...lineRuns(para[li]));
@@ -1233,16 +1285,34 @@ async function runPdfToWord(
 
             const isBullet = first.bullet;
             const heading = first.heading;
+            /* justified paragraph: every non-final line was stretched to the
+               column edge in the PDF — Word reproduces that with jc=both */
+            const isJustified =
+              para.length >= 2 &&
+              para.slice(0, -1).every((l) => l.endsAtRight);
             const alignment = first.centered
               ? AlignmentType.CENTER
               : first.rightAligned
               ? AlignmentType.RIGHT
+              : isJustified
+              ? AlignmentType.JUSTIFIED
               : undefined;
+            /* justified: wide gaps were emitted as tab markers — a justified
+               paragraph must carry plain spaces, Word stretches them when it
+               justifies (tab stops would jump words to fixed positions) */
+            if (isJustified)
+              for (const r of runs)
+                if (r.tabBefore) {
+                  r.tabBefore = false;
+                  r.text = ` ${r.text}`;
+                }
 
             /* tab stops from wide gaps (reconstructed table columns) —
                OOXML tab positions are measured from the left text margin,
                so they land at the PDF x position only when the base is the
-               measured page margin (not the paragraph's own left edge) */
+               measured page margin (not the paragraph's own left edge).
+               Justified paragraphs use normal spaces instead: Word stretches
+               them when it justifies, fixed tab stops would fight it */
             const marginLeftPt = pageLeftPt ?? m.leftMargin;
             const tabs: any[] = [];
             for (const line of para) {
@@ -1286,12 +1356,20 @@ async function runPdfToWord(
                     bold: r.bold || !!heading,
                     italics: r.italic,
                     size: clampHP(r.size),
+                    sizeComplexScript: true,
+                    boldComplexScript: r.bold || !!heading,
+                    italicsComplexScript: r.italic,
+                    font: wordFontFor(r.font),
                   })
                 : new TextRun({
                     text: r.text,
                     bold: r.bold || !!heading,
                     italics: r.italic,
                     size: clampHP(r.size),
+                    sizeComplexScript: true,
+                    boldComplexScript: r.bold || !!heading,
+                    italicsComplexScript: r.italic,
+                    font: wordFontFor(r.font),
                   })
             );
 
@@ -1324,7 +1402,7 @@ async function runPdfToWord(
                 alignment,
                 bullet: isBullet ? { level: 0 } : undefined,
                 indent,
-                tabStops: tabs.length ? tabs : undefined,
+                tabStops: tabs.length && !isJustified ? tabs : undefined,
                 spacing,
                 children:
                   firstParaOfPage && pageImgRuns.length
@@ -1366,7 +1444,7 @@ async function runPdfToWord(
   cb.onOverall?.(1);
   return {
     files: outFiles,
-    note: "Text and images extracted — scanned PDFs have no text layer; complex layouts are approximated",
+    note: "Text, alignment (centered/right/justified), fonts and images extracted — scanned PDFs have no text layer; complex layouts are approximated",
   };
 }
 
@@ -1535,25 +1613,43 @@ async function runWordToPdf(
   for (let i = 0; i < entries.length; i++) {
     const buf = await entries[i].file.arrayBuffer();
     /* mammoth drops direct paragraph alignment (w:jc) from its HTML output —
-       surface it by stamping synthetic style names on centered/right
-       paragraphs, which the style map turns into detectable classes */
+       surface it by stamping synthetic style names on centered/right/justified
+       paragraphs, which the style maps turn into detectable classes. Heading
+       styles get level-specific names so a centered Heading 1 still renders
+       as a centered h1 instead of falling back to a left-aligned one */
+    const alignStyleMaps = [
+      "p[style-name='__mzC'] => p.mz-center:fresh",
+      "p[style-name='__mzR'] => p.mz-right:fresh",
+      "p[style-name='__mzJ'] => p.mz-just:fresh",
+    ];
+    for (let h = 1; h <= 6; h++) {
+      alignStyleMaps.push(`p[style-name='__mzC-H${h}'] => h${h}.mz-center:fresh`);
+      alignStyleMaps.push(`p[style-name='__mzR-H${h}'] => h${h}.mz-right:fresh`);
+    }
     const { value: html } = await mammoth.convertToHtml(
       { arrayBuffer: buf },
       {
-        styleMap: [
-          "p[style-name='__mzCenter'] => p.mz-center:fresh",
-          "p[style-name='__mzRight'] => p.mz-right:fresh",
-        ],
+        styleMap: alignStyleMaps,
         transformDocument: (document: any) => {
           const mark = (el: any) => {
             if (
               el.type === "paragraph" &&
-              (el.alignment === "center" || el.alignment === "right") &&
-              (!el.styleId || /normal|body/i.test(String(el.styleId)))
+              (el.alignment === "center" ||
+                el.alignment === "right" ||
+                el.alignment === "both" ||
+                el.alignment === "justify")
             ) {
-              el.styleName =
-                el.alignment === "center" ? "__mzCenter" : "__mzRight";
-              el.styleId = undefined;
+              const sid = String(el.styleId ?? "");
+              const hm = sid.match(/heading\s*([1-6])/i);
+              const a = el.alignment;
+              if (hm && (a === "center" || a === "right")) {
+                el.styleName = a === "center" ? `__mzC-H${hm[1]}` : `__mzR-H${hm[1]}`;
+                el.styleId = undefined;
+              } else if (!hm && (!sid || /normal|body/i.test(sid))) {
+                el.styleName =
+                  a === "center" ? "__mzC" : a === "right" ? "__mzR" : "__mzJ";
+                el.styleId = undefined;
+              }
             }
             (el.children ?? []).forEach(mark);
           };
@@ -1566,10 +1662,11 @@ async function runWordToPdf(
     const pdf = new jsPDF({ unit: "pt", format: [pageW, pageH] });
     let y = M;
 
-    const alignOf = (el: Element): "left" | "center" | "right" => {
+    const alignOf = (el: Element): "left" | "center" | "right" | "justify" => {
       const cls = el.getAttribute("class") ?? "";
       if (cls.includes("mz-center")) return "center";
       if (cls.includes("mz-right")) return "right";
+      if (cls.includes("mz-just")) return "justify";
       return "left";
     };
 
@@ -1609,13 +1706,15 @@ async function runWordToPdf(
 
     /* rich-text flow: wraps word-by-word ACROSS style runs, so a paragraph
        keeps its mixed bold/italic exactly like the source document. Lines
-       are buffered first so centered/right paragraphs get offset. */
+       are buffered first so centered/right paragraphs get offset. Justified
+       paragraphs stretch every line except the last across the column, the
+       way Word does it — they used to come out as ragged left text */
     const writeRuns = (
       runs: RRun[],
       size: number,
       indent: number,
       gapAfter: number,
-      align: "left" | "center" | "right" = "left"
+      align: "left" | "center" | "right" | "justify" = "left"
     ) => {
       const left = M + indent;
       const avail = pageW - M - left;
@@ -1624,7 +1723,7 @@ async function runWordToPdf(
       let line: W[] = [];
       let lineW = 0;
 
-      const flush = () => {
+      const flush = (final = false) => {
         while (line.length && /^\s+$/.test(line[line.length - 1].text))
           lineW -= line.pop()!.w;
         if (!line.length) return;
@@ -1633,13 +1732,20 @@ async function runWordToPdf(
           y = M;
         }
         let x = left;
-        if (align === "center") x += Math.max(0, (avail - lineW) / 2);
+        /* justification: distribute the leftover width over the word gaps */
+        let gapExtra = 0;
+        if (align === "justify" && !final) {
+          const gaps = line.filter((wd) => /^\s+$/.test(wd.text)).length;
+          if (line.length > 1 && gaps > 0 && lineW < avail)
+            gapExtra = (avail - lineW) / gaps;
+        } else if (align === "center")
+          x += Math.max(0, (avail - lineW) / 2);
         else if (align === "right") x += Math.max(0, avail - lineW);
         for (const wd of line) {
           pdf.setFont("helvetica", fontFor(wd.bold, wd.italic));
           pdf.setFontSize(size);
           pdf.text(wd.text, x, y);
-          x += wd.w;
+          x += wd.w + (/^\s+$/.test(wd.text) ? gapExtra : 0);
         }
         line = [];
         lineW = 0;
@@ -1696,12 +1802,17 @@ async function runWordToPdf(
           }
         }
       }
-      flush();
+      flush(true);
       y += gapAfter;
     };
 
-    /* embed mammoth's inlined data-URI images, scaled to the text column */
-    const drawImageEl = (el: Element) => {
+    /* embed mammoth's inlined data-URI images, scaled to the text column.
+       The paragraph's alignment is honored: a centered/right picture used to
+       be pinned to the left margin no matter how it sat in the document */
+    const drawImageEl = (
+      el: Element,
+      align: "left" | "center" | "right" | "justify" = "left"
+    ) => {
       const src = el.getAttribute("src") ?? "";
       const m = src.match(/^data:image\/(png|jpe?g);base64,([\s\S]+)$/);
       if (!m) return; // unsupported source — skipped honestly
@@ -1710,13 +1821,17 @@ async function runWordToPdf(
         const raw = new Uint8Array(bin.length);
         for (let k = 0; k < bin.length; k++) raw[k] = bin.charCodeAt(k);
         const props = pdf.getImageProperties(raw);
-        const w = Math.min(pageW - M * 2, props.width);
+        const colW = pageW - M * 2;
+        const w = Math.min(colW, props.width);
         const h = (w / props.width) * props.height;
         if (y + h > pageH - M) {
           pdf.addPage();
           y = M;
         }
-        pdf.addImage(raw, m[1] === "png" ? "PNG" : "JPEG", M, y, w, h);
+        let x = M;
+        if (align === "center") x = M + Math.max(0, (colW - w) / 2);
+        else if (align === "right") x = pageW - M - w;
+        pdf.addImage(raw, m[1] === "png" ? "PNG" : "JPEG", x, y, w, h);
         y += h + 10;
       } catch {
         /* broken image — skip rather than fail the whole file */
@@ -1757,7 +1872,15 @@ async function runWordToPdf(
       const lineH = size * 1.35;
       const grid: string[][] = [];
       const cellImgs: DecodedImg[][][] = [];
+      const cellAlign: string[][] = [];
       const rowBold: boolean[] = [];
+      /* cell text alignment survives mammoth only via the stamped classes on
+         the paragraph inside the cell */
+      const cellAlignOf = (c: Element): "left" | "center" | "right" => {
+        if (c.querySelector("p.mz-center")) return "center";
+        if (c.querySelector("p.mz-right")) return "right";
+        return "left";
+      };
       for (let r = 0; r < trs.length; r++) {
         const cells = Array.from(trs[r].querySelectorAll("th,td"));
         grid.push(
@@ -1765,6 +1888,7 @@ async function runWordToPdf(
             (c.textContent ?? "").replace(/\s+/g, " ").trim()
           )
         );
+        cellAlign.push(cells.map((c) => cellAlignOf(c)));
         cellImgs.push(
           cells.map((c) =>
             Array.from(c.querySelectorAll("img"))
@@ -1782,6 +1906,7 @@ async function runWordToPdf(
       const nCols = Math.max(...grid.map((r) => r.length));
       for (const r of grid) while (r.length < nCols) r.push("");
       for (const r of cellImgs) while (r.length < nCols) r.push([]);
+      for (const r of cellAlign) while (r.length < nCols) r.push("left");
       pdf.setFontSize(size);
       const colW: number[] = [];
       for (let c = 0; c < nCols; c++) {
@@ -1849,12 +1974,16 @@ async function runWordToPdf(
         let x = M;
         for (let c = 0; c < nCols; c++) {
           pdf.rect(x, y, colW[c], rowH);
-          for (let li = 0; li < cellLines[c].length; li++)
-            pdf.text(
-              cellLines[c][li],
-              x + pad,
-              y + pad + size * 0.85 + li * lineH
-            );
+          for (let li = 0; li < cellLines[c].length; li++) {
+            /* honor the cell's paragraph alignment (centered table headers
+               and columns used to come out left-aligned) */
+            let tx = x + pad;
+            if (cellAlign[r][c] === "center")
+              tx = x + Math.max(pad, (colW[c] - pdf.getTextWidth(cellLines[c][li])) / 2);
+            else if (cellAlign[r][c] === "right")
+              tx = x + colW[c] - pad - pdf.getTextWidth(cellLines[c][li]);
+            pdf.text(cellLines[c][li], tx, y + pad + size * 0.85 + li * lineH);
+          }
           /* draw the cell's images stacked below its text */
           let iy = y + pad + nLines * lineH;
           for (const s of cellImgSizes[c]) {
@@ -1914,7 +2043,7 @@ async function runWordToPdf(
        like the source. The old recursion walked element children only, so
        every text run sitting next to an inline picture ("Here is my logo: …")
        was silently dropped from the converted PDF */
-    const walkMixed = (node: Element, depth: number, align: "left" | "center" | "right") => {
+    const walkMixed = (node: Element, depth: number, align: "left" | "center" | "right" | "justify") => {
       let buf: RRun[] = [];
       const flush = () => {
         if (buf.some((r) => r.text.trim())) writeRuns(buf, 11, 0, 8, align);
@@ -1928,7 +2057,7 @@ async function runWordToPdf(
           const t = (n as Element).tagName.toLowerCase();
           if (t === "img") {
             flush();
-            drawImageEl(n as Element);
+            drawImageEl(n as Element, align);
           } else if (isList(t)) {
             flush();
             walkList(n as Element, depth);
@@ -1988,7 +2117,7 @@ async function runWordToPdf(
   }
   return {
     files: outFiles,
-    note: "Text, headings, lists, tables, alignment, images & bold/italic kept — complex layout simplified",
+    note: "Text, headings, lists, tables, centered/right/justified alignment, images & bold/italic kept — complex layout simplified",
   };
 }
 
