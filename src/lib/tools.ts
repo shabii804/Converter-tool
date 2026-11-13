@@ -539,3 +539,66 @@ export const toolById = (id: string | null | undefined) =>
 
 export const toolsByCategory = (cat: ToolCategory | "all") =>
   cat === "all" ? TOOLS : TOOLS.filter((t) => t.category === cat);
+
+/**
+ * Default display order, ranked by public usage research: the order major
+ * PDF platforms lead with (iLovePDF's homepage — the industry benchmark:
+ * merge, split, compress, the office converters first), cross-checked
+ * against global search-volume patterns for PDF tool queries where merge,
+ * compress, pdf-to-word, jpg-to-pdf and pdf-to-jpg consistently top the
+ * lists. High-traffic document tasks come first, niche utilities trail.
+ */
+export const USAGE_RANK: string[] = [
+  // tier 1 — the operations people open first on every major platform
+  "merge",
+  "split",
+  "compress",
+  "pdf-to-word",
+  "pdf-to-ppt",
+  "pdf-to-excel",
+  "word-to-pdf",
+  "jpg-to-pdf",
+  "pdf-to-jpg",
+  "edit-pdf",
+  "sign-pdf",
+  "organize",
+  // tier 2 — frequent document tasks
+  "rotate",
+  "unlock",
+  "protect",
+  "watermark",
+  "page-numbers",
+  "crop",
+  "compress-target",
+  "redact-pdf",
+  "flatten",
+  "edit-metadata",
+  // tier 3 — image & format utilities
+  "pdf-to-png",
+  "extract-images",
+  "extract-text",
+  "ocr",
+  "compress-image",
+  "resize-image",
+  "convert-image",
+  // tier 4 — generators & niche
+  "text-to-pdf",
+  "qr-to-pdf",
+  "id-photo",
+];
+
+/** how many tools lead the "Most used" band (2 rows of 4 cards) */
+export const MOST_USED_COUNT = 12;
+
+/** display order for the grid: the user's saved order when present,
+    otherwise the research-based rank. Tools missing from a custom list
+    keep their ranked position at the end. */
+export function rankTools(tools: ToolDef[], customOrder?: string[]): ToolDef[] {
+  const rankIndex = new Map(USAGE_RANK.map((id, i) => [id, i]));
+  const customIndex = customOrder?.length
+    ? new Map(customOrder.map((id, i) => [id, i]))
+    : null;
+  const posOf = (id: string) =>
+    customIndex ? customIndex.get(id) ?? rankIndex.get(id) ?? 999 : rankIndex.get(id) ?? 999;
+  return [...tools].sort((a, b) => posOf(a.id) - posOf(b.id));
+}

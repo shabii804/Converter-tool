@@ -52,6 +52,15 @@ const pt: Copy = {
     noResultsCta: "Abrir busca (Ctrl+K)",
     favAdd: "Adicionar aos favoritos",
     favRemove: "Remover dos favoritos",
+    mostUsed: "Mais usadas",
+    mostUsedNote: "as primeiras que se abrem",
+    customize: "Personalizar",
+    done: "Concluído",
+    customizeHint:
+      "Arraste os cartões ou use as setas para ordenar as ferramentas à sua maneira — salvo apenas neste dispositivo.",
+    resetOrder: "Restaurar ordem",
+    moveUp: "Mover para cima",
+    moveDown: "Mover para baixo",
   },
   how: {
     eyebrow: "Como funciona",
@@ -208,6 +217,15 @@ const hi: Copy = {
     noResultsCta: "सर्च खोलें (Ctrl+K)",
     favAdd: "पसंदीदा में जोड़ें",
     favRemove: "पसंदीदा से हटाएँ",
+    mostUsed: "सबसे ज़्यादा उपयोग होने वाले",
+    mostUsedNote: "जो सबसे पहले खोले जाते हैं",
+    customize: "अपनी तरह व्यवस्थित करें",
+    done: "पूर्ण",
+    customizeHint:
+      "कार्ड खींचकर या तीर के बटन से टूल्स को अपने हिसाब से व्यवस्थित करें — क्रम केवल इसी डिवाइस पर सहेजा जाता है।",
+    resetOrder: "क्रम रीसेट करें",
+    moveUp: "ऊपर ले जाएँ",
+    moveDown: "नीचे ले जाएँ",
   },
   how: {
     eyebrow: "कैसे काम करता है",
@@ -364,6 +382,15 @@ const ur: Copy = {
     noResultsCta: "سرچ کھولیں (Ctrl+K)",
     favAdd: "پسندیدہ میں شامل کریں",
     favRemove: "پسندیدہ سے ہٹائیں",
+    mostUsed: "سب سے زیادہ استعمال ہونے والے",
+    mostUsedNote: "جو سب سے پہلے کھولے جاتے ہیں",
+    customize: "اپنی ترتیب بنائیں",
+    done: "مکمل",
+    customizeHint:
+      "کارڈ کو ڈریگ کریں یا تیروں سے ٹولز کو اپنی پسند کے مطابق ترتیب دیں — ترتیب صرف اسی ڈیوائس پر محفوظ ہوتی ہے۔",
+    resetOrder: "ترتیب ری سیٹ کریں",
+    moveUp: "اوپر لے جائیں",
+    moveDown: "نیچے لے جائیں",
   },
   how: {
     eyebrow: "کیسے کام کرتا ہے",
@@ -520,6 +547,15 @@ const ar: Copy = {
     noResultsCta: "افتح البحث (Ctrl+K)",
     favAdd: "أضف إلى المفضلة",
     favRemove: "أزل من المفضلة",
+    mostUsed: "الأكثر استخدامًا",
+    mostUsedNote: "ما يفتحه الناس أولًا",
+    customize: "ترتيب مخصص",
+    done: "تم",
+    customizeHint:
+      "اسحب البطاقات أو استخدم الأسهم لترتيب الأدوات كما تحب — يُحفظ الترتيب على هذا الجهاز فقط.",
+    resetOrder: "إعادة تعيين الترتيب",
+    moveUp: "نقل لأعلى",
+    moveDown: "نقل لأسفل",
   },
   how: {
     eyebrow: "كيف تعمل",

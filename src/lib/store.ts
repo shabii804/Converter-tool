@@ -64,6 +64,8 @@ interface AppState {
   favorites: string[];
   /** recently used tool ids, most recent first (persisted locally) */
   recent: string[];
+  /** user's custom tool order (persisted locally; empty = research rank) */
+  customOrder: string[];
 
   setView: (v: View) => void;
   openTool: (id: string) => void;
@@ -83,6 +85,10 @@ interface AppState {
   toggleFavorite: (id: string) => void;
   pushRecent: (id: string) => void;
   clearRecent: () => void;
+  /** save a reordered tool list (grid customization) */
+  setCustomOrder: (ids: string[]) => void;
+  /** drop the custom order — back to the research-based rank */
+  resetCustomOrder: () => void;
   /** read persisted UI prefs from localStorage (call once after mount) */
   hydrateLocal: () => void;
   resetAll: () => void;
@@ -98,6 +104,7 @@ const LS = {
   lang: "swiftpdf.lang",
   favs: "swiftpdf.favs",
   recent: "swiftpdf.recent",
+  order: "swiftpdf.order",
 } as const;
 
 function readLS<T>(key: string, fallback: T): T {
@@ -167,6 +174,7 @@ export const useStore = create<AppState>((set, get) => ({
   toolFilter: "all",
   favorites: [],
   recent: [],
+  customOrder: [],
 
   setView: (v) => set({ view: v }),
 
@@ -294,11 +302,22 @@ export const useStore = create<AppState>((set, get) => ({
     set({ recent: [] });
   },
 
+  setCustomOrder: (ids) => {
+    writeLS(LS.order, ids);
+    set({ customOrder: ids });
+  },
+
+  resetCustomOrder: () => {
+    writeLS(LS.order, []);
+    set({ customOrder: [] });
+  },
+
   hydrateLocal: () =>
     set({
       lang: readLS<Lang>(LS.lang, "en"),
       favorites: readLS<string[]>(LS.favs, []),
       recent: readLS<string[]>(LS.recent, []),
+      customOrder: readLS<string[]>(LS.order, []),
     }),
 
   resetAll: () =>

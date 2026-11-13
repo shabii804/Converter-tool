@@ -85,6 +85,15 @@ const en = {
     noResultsCta: "Open search (Ctrl+K)",
     favAdd: "Add to favorites",
     favRemove: "Remove from favorites",
+    mostUsed: "Most used",
+    mostUsedNote: "what people open first",
+    customize: "Customize",
+    done: "Done",
+    customizeHint:
+      "Drag the cards or use the arrows to arrange tools your way — saved only on this device.",
+    resetOrder: "Reset order",
+    moveUp: "Move up",
+    moveDown: "Move down",
   },
   how: {
     eyebrow: "How it works",
@@ -243,6 +252,15 @@ const es: Copy = {
     noResultsCta: "Abrir buscador (Ctrl+K)",
     favAdd: "Añadir a favoritas",
     favRemove: "Quitar de favoritas",
+    mostUsed: "Más usadas",
+    mostUsedNote: "las que se abren primero",
+    customize: "Personalizar",
+    done: "Listo",
+    customizeHint:
+      "Arrastra las tarjetas o usa las flechas para ordenar las herramientas a tu manera — se guarda solo en este dispositivo.",
+    resetOrder: "Restablecer orden",
+    moveUp: "Subir",
+    moveDown: "Bajar",
   },
   how: {
     eyebrow: "Cómo funciona",
@@ -399,6 +417,15 @@ const fr: Copy = {
     noResultsCta: "Ouvrir la recherche (Ctrl+K)",
     favAdd: "Ajouter aux favoris",
     favRemove: "Retirer des favoris",
+    mostUsed: "Les plus utilisées",
+    mostUsedNote: "celles qu'on ouvre en premier",
+    customize: "Personnaliser",
+    done: "Terminé",
+    customizeHint:
+      "Faites glisser les cartes ou utilisez les flèches pour organiser les outils à votre façon — enregistré uniquement sur cet appareil.",
+    resetOrder: "Réinitialiser l'ordre",
+    moveUp: "Monter",
+    moveDown: "Descendre",
   },
   how: {
     eyebrow: "Comment ça marche",
