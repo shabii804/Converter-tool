@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Original SVG illustrations — hand-authored for SwiftPDF, no stock imagery.
+ * Original SVG illustrations — hand-authored for PrivyPDF, no stock imagery.
  * Colors read from design tokens so both themes stay consistent.
  */
 

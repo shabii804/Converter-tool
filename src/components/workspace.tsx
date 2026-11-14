@@ -908,7 +908,7 @@ function OptionsPanel({
             </button>
           ))}
           <p className="pt-1 text-[13px] leading-relaxed text-fg-faint">
-            SwiftPDF tries both a lossless re-save and smart re-encoding, then
+            PrivyPDF tries both a lossless re-save and smart re-encoding, then
             keeps whichever is smaller.
           </p>
         </div>

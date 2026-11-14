@@ -6,7 +6,7 @@ import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
- * SwiftPDF Button — brand primary uses the indigo→violet gradient.
+ * PrivyPDF Button — brand primary uses the indigo→violet gradient.
  * Subtle press feedback (scale .98); respects reduced motion via tokens.
  */
 const buttonVariants = cva(

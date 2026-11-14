@@ -29,7 +29,7 @@ export function LegalDoc({
           <MeshBackdrop />
           <div className="relative mx-auto max-w-3xl px-4 py-14 sm:px-6">
             <p className="text-micro font-bold uppercase tracking-widest text-primary">
-              SwiftPDF
+              PrivyPDF
             </p>
             <h1 className="mt-3 text-h1 font-bold tracking-heading">{title}</h1>
             <p className="mt-3 text-[13px] text-fg-muted">

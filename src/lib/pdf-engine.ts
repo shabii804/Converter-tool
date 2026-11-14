@@ -1,5 +1,5 @@
 /**
- * SwiftPDF Engine — 100% client-side PDF processing.
+ * PrivyPDF Engine — 100% client-side PDF processing.
  * No file ever leaves the device. All heavy libs are lazy-loaded.
  */
 

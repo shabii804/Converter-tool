@@ -1,5 +1,5 @@
 /**
- * SwiftPDF service worker — makes the local-first promise concrete:
+ * PrivyPDF service worker — makes the local-first promise concrete:
  * once the app is loaded, it keeps working offline.
  *
  * Strategies:
@@ -9,7 +9,7 @@
  * - never touches POST requests or the /api route (there is nothing to
  *   upload in this app, but we are explicit anyway)
  */
-const VERSION = "swiftpdf-v1";
+const VERSION = "privypdf-v1";
 const STATIC_CACHE = `${VERSION}-static`;
 const PAGE_CACHE = `${VERSION}-pages`;
 

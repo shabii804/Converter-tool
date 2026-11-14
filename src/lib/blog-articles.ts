@@ -46,13 +46,13 @@ export const ARTICLES: Article[] = [
         ],
         image: {
           src: "/blog/merge-1-files.png",
-          alt: "SwiftPDF Merge PDF tool with two sample PDF files loaded in the file list",
+          alt: "PrivyPDF Merge PDF tool with two sample PDF files loaded in the file list",
         },
       },
       {
         heading: "The actual steps",
         paragraphs: [
-          "The whole flow takes about fifteen seconds once the page has loaded. Here is the complete process in the SwiftPDF merge tool:",
+          "The whole flow takes about fifteen seconds once the page has loaded. Here is the complete process in the PrivyPDF merge tool:",
         ],
         steps: [
           "Open the Merge PDF tool — or just drop files on the home page and accept the suggested tool.",
@@ -63,7 +63,7 @@ export const ARTICLES: Article[] = [
         ],
         image: {
           src: "/blog/merge-2-result.png",
-          alt: "SwiftPDF results screen showing a merged.pdf file ready to download",
+          alt: "PrivyPDF results screen showing a merged.pdf file ready to download",
         },
       },
       {
@@ -98,7 +98,7 @@ export const ARTICLES: Article[] = [
         ],
         image: {
           src: "/blog/compress-1-target.png",
-          alt: "SwiftPDF Compress to Target Size tool with the 100KB preset selected",
+          alt: "PrivyPDF Compress to Target Size tool with the 100KB preset selected",
         },
       },
       {
@@ -115,7 +115,7 @@ export const ARTICLES: Article[] = [
         ],
         image: {
           src: "/blog/compress-2-done.png",
-          alt: "SwiftPDF results screen showing a compressed PDF with the achieved size in the result note",
+          alt: "PrivyPDF results screen showing a compressed PDF with the achieved size in the result note",
         },
       },
       {
@@ -144,7 +144,7 @@ export const ARTICLES: Article[] = [
         ],
         image: {
           src: "/blog/sign-1-modal.png",
-          alt: "SwiftPDF signature modal with Draw, Type and Upload tabs and an ink color picker",
+          alt: "PrivyPDF signature modal with Draw, Type and Upload tabs and an ink color picker",
         },
       },
       {
@@ -155,7 +155,7 @@ export const ARTICLES: Article[] = [
         ],
         image: {
           src: "/blog/sign-2-placed.png",
-          alt: "A typed signature placed on a PDF page in the SwiftPDF editor, ready to be dragged into position",
+          alt: "A typed signature placed on a PDF page in the PrivyPDF editor, ready to be dragged into position",
         },
       },
       {
@@ -190,7 +190,7 @@ export const ARTICLES: Article[] = [
         ],
         image: {
           src: "/blog/redact-1-boxes.png",
-          alt: "SwiftPDF Redact PDF editor showing a black redaction box drawn over a line of text",
+          alt: "PrivyPDF Redact PDF editor showing a black redaction box drawn over a line of text",
         },
       },
       {
@@ -208,7 +208,7 @@ export const ARTICLES: Article[] = [
         ],
         image: {
           src: "/blog/redact-2-warning.png",
-          alt: "The redaction warning in SwiftPDF explaining that redaction is permanent and pages with boxes are flattened",
+          alt: "The redaction warning in PrivyPDF explaining that redaction is permanent and pages with boxes are flattened",
         },
       },
       {
@@ -236,7 +236,7 @@ export const ARTICLES: Article[] = [
         ],
         image: {
           src: "/blog/extract-text-1.png",
-          alt: "SwiftPDF Extract Text tool with page markers option enabled",
+          alt: "PrivyPDF Extract Text tool with page markers option enabled",
         },
       },
       {
@@ -253,7 +253,7 @@ export const ARTICLES: Article[] = [
         ],
         image: {
           src: "/blog/extract-text-2-result.png",
-          alt: "SwiftPDF results screen showing an extracted .txt file ready to download",
+          alt: "PrivyPDF results screen showing an extracted .txt file ready to download",
         },
       },
       {
@@ -281,7 +281,7 @@ export const ARTICLES: Article[] = [
         ],
         image: {
           src: "/blog/convert-1-panel.png",
-          alt: "SwiftPDF Convert Image tool with the WebP output format selected",
+          alt: "PrivyPDF Convert Image tool with the WebP output format selected",
         },
       },
       {
@@ -298,7 +298,7 @@ export const ARTICLES: Article[] = [
         ],
         image: {
           src: "/blog/convert-2-done.png",
-          alt: "SwiftPDF results screen showing converted WebP images ready to download",
+          alt: "PrivyPDF results screen showing converted WebP images ready to download",
         },
       },
       {
@@ -326,7 +326,7 @@ export const ARTICLES: Article[] = [
         ],
         image: {
           src: "/blog/unlock-1.png",
-          alt: "SwiftPDF Unlock PDF tool with the current password field ready for input",
+          alt: "PrivyPDF Unlock PDF tool with the current password field ready for input",
         },
       },
       {
@@ -342,7 +342,7 @@ export const ARTICLES: Article[] = [
         ],
         image: {
           src: "/blog/unlock-2-done.png",
-          alt: "SwiftPDF results screen showing the unlocked PDF ready to download",
+          alt: "PrivyPDF results screen showing the unlocked PDF ready to download",
         },
       },
       {
@@ -371,7 +371,7 @@ export const ARTICLES: Article[] = [
         ],
         image: {
           src: "/blog/edit-1-editor.png",
-          alt: "The SwiftPDF Edit PDF editor with the toolbar and a text item placed on the page",
+          alt: "The PrivyPDF Edit PDF editor with the toolbar and a text item placed on the page",
         },
       },
       {
@@ -382,7 +382,7 @@ export const ARTICLES: Article[] = [
         ],
         image: {
           src: "/blog/edit-2-inspector.png",
-          alt: "The text inspector panel in the SwiftPDF editor with font, size and color controls",
+          alt: "The text inspector panel in the PrivyPDF editor with font, size and color controls",
         },
       },
       {

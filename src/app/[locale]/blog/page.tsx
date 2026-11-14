@@ -34,12 +34,12 @@ export async function generateMetadata({
       languages: localeAlternates("/blog"),
     },
     openGraph: {
-      title: "Blog — SwiftPDF",
+      title: "Blog — PrivyPDF",
       description:
         "How in-browser PDF tools work, what they can and cannot do — no spin.",
       url: canonicalUrl(locale as Lang, "/blog"),
       type: "website",
-      images: [{ url: "/og.png", width: 1200, height: 630, alt: "SwiftPDF blog" }],
+      images: [{ url: "/og.png", width: 1200, height: 630, alt: "PrivyPDF blog" }],
     },
   };
 }

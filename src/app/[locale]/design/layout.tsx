@@ -20,9 +20,9 @@ export async function generateMetadata({
   const { locale } = await params;
   if (!isLocale(locale)) return {};
   return {
-    title: "SwiftPDF Design System — tokens, components & principles",
+    title: "PrivyPDF Design System — tokens, components & principles",
     description:
-      "The SwiftPDF design system: navy + indigo-violet palette, 8px grid, layered shadows, Inter type scale, component kit and motion principles.",
+      "The PrivyPDF design system: navy + indigo-violet palette, 8px grid, layered shadows, Inter type scale, component kit and motion principles.",
     robots: { index: false, follow: true },
     alternates: { canonical: canonicalUrl(locale as Lang, "/design") },
   };

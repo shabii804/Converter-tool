@@ -9,7 +9,7 @@ const SECTIONS: LegalSection[] = [
   {
     h: "The short version",
     p: [
-      "SwiftPDF is a local-first document toolkit: every file you open is processed inside your own browser tab. There is no upload step anywhere in the product — your documents never leave your device, so they are never stored, seen or shared by anyone but you.",
+      "PrivyPDF is a local-first document toolkit: every file you open is processed inside your own browser tab. There is no upload step anywhere in the product — your documents never leave your device, so they are never stored, seen or shared by anyone but you.",
     ],
   },
   {
@@ -33,7 +33,7 @@ const SECTIONS: LegalSection[] = [
   {
     h: "Offline use and the app cache",
     p: [
-      "SwiftPDF is an installable progressive web app. A service worker caches the application code so the toolkit keeps working offline. That cache contains application files only — never your documents.",
+      "PrivyPDF is an installable progressive web app. A service worker caches the application code so the toolkit keeps working offline. That cache contains application files only — never your documents.",
     ],
   },
   {
@@ -58,9 +58,9 @@ export async function generateMetadata({
   const { locale } = await params;
   const lang: Lang = isLocale(locale) ? locale : "en";
   return {
-    title: "Privacy Policy — SwiftPDF",
+    title: "Privacy Policy — PrivyPDF",
     description:
-      "SwiftPDF processes every file inside your browser. No uploads, no accounts, no tracking of file contents — what stays on your device and why.",
+      "PrivyPDF processes every file inside your browser. No uploads, no accounts, no tracking of file contents — what stays on your device and why.",
     alternates: { canonical: canonicalUrl(lang, "/privacy") },
   };
 }

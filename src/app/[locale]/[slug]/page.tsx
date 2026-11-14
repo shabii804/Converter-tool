@@ -66,11 +66,11 @@ export default async function IntentPage({
     }),
     faqLd(page.faqs),
     breadcrumbLd([
-      { name: "SwiftPDF", url: canonicalUrl("en", "/") },
+      { name: "PrivyPDF", url: canonicalUrl("en", "/") },
       { name: page.h1, url },
     ]),
     softwareAppLd({
-      name: `SwiftPDF — ${tool.name}`,
+      name: `PrivyPDF — ${tool.name}`,
       description: page.description,
       url,
       appType: "WebApplication",
@@ -84,7 +84,7 @@ export default async function IntentPage({
         <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-10 sm:px-6 sm:py-14">
           <nav aria-label="Breadcrumb" className="mb-6 text-[13px] text-fg-faint">
             <Link href="/en" className="hover:text-foreground">
-              SwiftPDF
+              PrivyPDF
             </Link>
             <span className="mx-1.5">/</span>
             <span className="text-fg-muted">{page.h1}</span>

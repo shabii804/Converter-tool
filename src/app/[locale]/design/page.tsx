@@ -217,7 +217,7 @@ export default function DesignPage() {
                 ["H1", "text-h1 font-bold tracking-heading", "Done — processed on your device"],
                 ["H2", "text-h2 font-bold tracking-heading", "All tools"],
                 ["H3", "text-h3 font-bold", "Watermark options"],
-                ["Body 15px", "text-body", "Drop a file and SwiftPDF figures out the rest — merge, split, compress, convert and more."],
+                ["Body 15px", "text-body", "Drop a file and PrivyPDF figures out the rest — merge, split, compress, convert and more."],
                 ["Caption 13px", "text-caption text-fg-muted", "Processing happens on this device. Nothing is uploaded."],
                 ["Micro 12px", "text-micro text-fg-faint", "Files stay on this device · No account · Works offline"],
               ].map(([label, cls, sample]) => (
@@ -534,7 +534,7 @@ export default function DesignPage() {
             id="illustrations"
             eyebrow="Library"
             title="Illustrations"
-            desc="Original SVGs drawn for SwiftPDF — no stock, no hotlinks, theme-aware through tokens, zero network requests."
+            desc="Original SVGs drawn for PrivyPDF — no stock, no hotlinks, theme-aware through tokens, zero network requests."
           >
             <div className="grid gap-5 sm:grid-cols-3">
               <Card className="flex flex-col items-center gap-4 p-6">
@@ -581,7 +581,7 @@ export default function DesignPage() {
           </Section>
 
           <div className="py-16 text-center text-micro text-fg-faint">
-            SwiftPDF design system · tokens in <code className="font-mono">src/design/tokens.css</code> ·
+            PrivyPDF design system · tokens in <code className="font-mono">src/design/tokens.css</code> ·
             kit in <code className="font-mono">src/components/kit/</code>
           </div>
         </div>

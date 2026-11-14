@@ -61,8 +61,8 @@ export async function generateMetadata({
   return {
     metadataBase: new URL(SITE),
     title: {
-      default: "SwiftPDF — Fast, private PDF tools in your browser",
-      template: "%s | SwiftPDF",
+      default: "PrivyPDF — Fast, private PDF tools in your browser",
+      template: "%s | PrivyPDF",
     },
     description:
       "Merge, split, compress, convert, edit and protect PDFs with one click. 100% in-browser processing — your files never leave your device. No sign-up, free forever.",

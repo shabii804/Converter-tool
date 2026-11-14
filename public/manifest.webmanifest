@@ -1,7 +1,7 @@
 {
-  "name": "SwiftPDF — private PDF tools in your browser",
-  "short_name": "SwiftPDF",
-  "description": "27 PDF tools that run entirely on your device. No uploads, no sign-up, works offline.",
+  "name": "PrivyPDF — private PDF tools in your browser",
+  "short_name": "PrivyPDF",
+  "description": "32 PDF tools that run entirely on your device. No uploads, no sign-up, works offline.",
   "start_url": "/en",
   "scope": "/",
   "display": "standalone",

@@ -39,8 +39,8 @@ export async function generateMetadata({
       title,
       description: t.hero.sub,
       url: canonicalUrl(locale as Lang, "/"),
-      siteName: "SwiftPDF",
-      images: [{ url: "/og.png", width: 1200, height: 630, alt: "SwiftPDF — private in-browser PDF tools" }],
+      siteName: "PrivyPDF",
+      images: [{ url: "/og.png", width: 1200, height: 630, alt: "PrivyPDF — private in-browser PDF tools" }],
       type: "website",
     },
     twitter: {
@@ -62,7 +62,7 @@ export default async function LocaleHome({
   const t = dictionaries[locale];
   const ld = [
     softwareAppLd({
-      name: "SwiftPDF",
+      name: "PrivyPDF",
       description:
         `Fast, private PDF tools that run entirely in your browser — ${TOOLS.length} tools, no uploads, no sign-up, free.`,
       url: SITE_URL,
@@ -71,7 +71,7 @@ export default async function LocaleHome({
     {
       "@context": "https://schema.org",
       "@type": "WebSite",
-      name: "SwiftPDF",
+      name: "PrivyPDF",
       url: SITE_URL,
     },
     {

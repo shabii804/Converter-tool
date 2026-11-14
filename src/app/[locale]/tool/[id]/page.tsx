@@ -34,19 +34,19 @@ export async function generateMetadata({
       languages: localeAlternates(`/tool/${tool.id}`),
     },
     openGraph: {
-      title: `${tool.name} | SwiftPDF`,
+      title: `${tool.name} | PrivyPDF`,
       description,
       url: canonicalUrl(locale as Lang, `/tool/${tool.id}`),
       type: "website",
       /* resolved against metadataBase (NEXT_PUBLIC_SITE_URL) — never localhost
          in production when the env var is set */
       images: [
-        { url: "/og.png", width: 1200, height: 630, alt: `${tool.name} — SwiftPDF` },
+        { url: "/og.png", width: 1200, height: 630, alt: `${tool.name} — PrivyPDF` },
       ],
     },
     twitter: {
       card: "summary_large_image",
-      title: `${tool.name} | SwiftPDF`,
+      title: `${tool.name} | PrivyPDF`,
       description,
       images: ["/og.png"],
     },
@@ -85,7 +85,7 @@ export default async function ToolPage({
       ],
     }),
     breadcrumbLd([
-      { name: "SwiftPDF", url: homeUrl },
+      { name: "PrivyPDF", url: homeUrl },
       { name: tool.name, url: toolUrl },
     ]),
   ];

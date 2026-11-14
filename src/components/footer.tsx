@@ -92,7 +92,7 @@ export function Footer() {
             <div className="flex items-center gap-2.5">
               <Logo className="size-7" />
               <span className="text-[16px] font-bold tracking-tight">
-                Swift<span className="text-gradient">PDF</span>
+                Privy<span className="text-[#DC2626] dark:text-[#F87171]">PDF</span>
               </span>
             </div>
             <p className="mt-3 max-w-xs text-[13px] leading-relaxed text-fg-muted">{t.footer.tagline}</p>
@@ -106,7 +106,7 @@ export function Footer() {
                 href="https://github.com/shabii804/Converter-tool"
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="SwiftPDF on GitHub"
+                aria-label="PrivyPDF on GitHub"
                 className="flex size-11 items-center justify-center rounded-chip border border-border-subtle text-fg-muted outline-none transition-colors hover:border-border-strong hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <Github className="size-4" aria-hidden="true" />

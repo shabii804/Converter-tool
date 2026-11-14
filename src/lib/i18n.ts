@@ -113,7 +113,7 @@ const en = {
       },
       {
         t: "Pick a tool",
-        d: "Choose from 32 tools — or accept the one SwiftPDF suggests for the files you dropped.",
+        d: "Choose from 32 tools — or accept the one PrivyPDF suggests for the files you dropped.",
       },
       {
         t: "Download the result",
@@ -124,7 +124,7 @@ const en = {
   why: {
     eyebrow: "Privacy by architecture",
     title: "Why on-device?",
-    sub: "Every SwiftPDF tool runs inside your browser tab. That changes three things:",
+    sub: "Every PrivyPDF tool runs inside your browser tab. That changes three things:",
     items: [
       {
         t: "Private",
@@ -144,7 +144,7 @@ const en = {
     eyebrow: "No marketing spin",
     title: "The honest comparison",
     sub: "Exactly where a local-first toolkit and a typical upload-based service differ.",
-    you: "SwiftPDF (on-device)",
+    you: "PrivyPDF (on-device)",
     them: "Typical upload tool",
     rows: [
       { k: "Files leave your device", a: "Never — processing is local", b: "Yes — files are uploaded" },
@@ -197,7 +197,7 @@ const en = {
     site: "Site",
     faq: "FAQ",
     how: "How it works",
-    copyright: "© 2026 SwiftPDF. Local-first by design.",
+    copyright: "© 2026 PrivyPDF. Local-first by design.",
     bottom: "100% in-browser · no file contents tracked · works offline",
     language: "Language",
     allTools: "All tools",
@@ -291,7 +291,7 @@ const es: Copy = {
       },
       {
         t: "Elige una herramienta",
-        d: "Elige entre 32 herramientas — o acepta la que SwiftPDF sugiera para los archivos que soltaste.",
+        d: "Elige entre 32 herramientas — o acepta la que PrivyPDF sugiera para los archivos que soltaste.",
       },
       {
         t: "Descarga el resultado",
@@ -302,7 +302,7 @@ const es: Copy = {
   why: {
     eyebrow: "Privacidad por arquitectura",
     title: "¿Por qué en tu dispositivo?",
-    sub: "Cada herramienta de SwiftPDF se ejecuta dentro de tu navegador. Eso cambia tres cosas:",
+    sub: "Cada herramienta de PrivyPDF se ejecuta dentro de tu navegador. Eso cambia tres cosas:",
     items: [
       {
         t: "Privado",
@@ -322,7 +322,7 @@ const es: Copy = {
     eyebrow: "Sin marketing",
     title: "Comparación honesta",
     sub: "Exactamente en qué se diferencia un conjunto de herramientas local de un servicio típico que sube archivos.",
-    you: "SwiftPDF (en tu dispositivo)",
+    you: "PrivyPDF (en tu dispositivo)",
     them: "Herramienta típica con subida",
     rows: [
       { k: "Los archivos salen de tu dispositivo", a: "Nunca — el procesado es local", b: "Sí — se suben a servidores" },
@@ -375,7 +375,7 @@ const es: Copy = {
     site: "Sitio",
     faq: "Preguntas frecuentes",
     how: "Cómo funciona",
-    copyright: "© 2026 SwiftPDF. Local primero, por diseño.",
+    copyright: "© 2026 PrivyPDF. Local primero, por diseño.",
     bottom: "100% en el navegador · sin rastreo del contenido · funciona sin conexión",
     language: "Idioma",
     allTools: "Todas las herramientas",
@@ -467,7 +467,7 @@ const fr: Copy = {
       },
       {
         t: "Choisissez un outil",
-        d: "32 outils au choix — ou acceptez celui que SwiftPDF suggère pour les fichiers déposés.",
+        d: "32 outils au choix — ou acceptez celui que PrivyPDF suggère pour les fichiers déposés.",
       },
       {
         t: "Téléchargez le résultat",
@@ -478,7 +478,7 @@ const fr: Copy = {
   why: {
     eyebrow: "Confidentialité par architecture",
     title: "Pourquoi sur l'appareil ?",
-    sub: "Chaque outil SwiftPDF s'exécute dans votre onglet. Cela change trois choses :",
+    sub: "Chaque outil PrivyPDF s'exécute dans votre onglet. Cela change trois choses :",
     items: [
       {
         t: "Privé",
@@ -498,7 +498,7 @@ const fr: Copy = {
     eyebrow: "Sans argument marketing",
     title: "La comparaison honnête",
     sub: "Ce qui distingue exactement une boîte à outils locale d'un service classique basé sur l'envoi.",
-    you: "SwiftPDF (sur l'appareil)",
+    you: "PrivyPDF (sur l'appareil)",
     them: "Outil classique avec envoi",
     rows: [
       { k: "Les fichiers quittent votre appareil", a: "Jamais — traitement local", b: "Oui — envoyés à des serveurs" },
@@ -551,7 +551,7 @@ const fr: Copy = {
     site: "Site",
     faq: "FAQ",
     how: "Comment ça marche",
-    copyright: "© 2026 SwiftPDF. Local d'abord, par conception.",
+    copyright: "© 2026 PrivyPDF. Local d'abord, par conception.",
     bottom: "100 % dans le navigateur · aucun suivi du contenu · fonctionne hors ligne",
     language: "Langue",
     allTools: "Tous les outils",

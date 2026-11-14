@@ -80,7 +80,7 @@ const pt: Copy = {
       },
       {
         t: "Escolha uma ferramenta",
-        d: "São 32 ferramentas — ou aceite a que o SwiftPDF sugerir para os arquivos que você soltou.",
+        d: "São 32 ferramentas — ou aceite a que o PrivyPDF sugerir para os arquivos que você soltou.",
       },
       {
         t: "Baixe o resultado",
@@ -91,7 +91,7 @@ const pt: Copy = {
   why: {
     eyebrow: "Privacidade por arquitetura",
     title: "Por que no dispositivo?",
-    sub: "Cada ferramenta do SwiftPDF roda na sua aba do navegador. Isso muda três coisas:",
+    sub: "Cada ferramenta do PrivyPDF roda na sua aba do navegador. Isso muda três coisas:",
     items: [
       {
         t: "Privado",
@@ -111,7 +111,7 @@ const pt: Copy = {
     eyebrow: "Sem marketing",
     title: "A comparação honesta",
     sub: "Exatamente onde um kit de ferramentas local e um serviço típico baseado em upload se diferenciam.",
-    you: "SwiftPDF (no dispositivo)",
+    you: "PrivyPDF (no dispositivo)",
     them: "Ferramenta típica com upload",
     rows: [
       { k: "Arquivos saem do seu dispositivo", a: "Nunca — o processamento é local", b: "Sim — os arquivos são enviados" },
@@ -164,7 +164,7 @@ const pt: Copy = {
     site: "Site",
     faq: "FAQ",
     how: "Como funciona",
-    copyright: "© 2026 SwiftPDF. Local primeiro, por design.",
+    copyright: "© 2026 PrivyPDF. Local primeiro, por design.",
     bottom: "100% no navegador · nenhum rastreamento do conteúdo · funciona offline",
     language: "Idioma",
     allTools: "Todas as ferramentas",
@@ -256,7 +256,7 @@ const hi: Copy = {
       },
       {
         t: "टूल चुनें",
-        d: "32 टूल्स में से चुनें — या SwiftPDF जो टूल आपकी फ़ाइलों के लिए सुझाए, उसे स्वीकार करें।",
+        d: "32 टूल्स में से चुनें — या PrivyPDF जो टूल आपकी फ़ाइलों के लिए सुझाए, उसे स्वीकार करें।",
       },
       {
         t: "रिज़ल्ट डाउनलोड करें",
@@ -267,7 +267,7 @@ const hi: Copy = {
   why: {
     eyebrow: "आर्किटेक्चर से निजी",
     title: "डिवाइस पर ही क्यों?",
-    sub: "SwiftPDF का हर टूल आपके ब्राउज़र टैब में चलता है। इससे तीन बातें बदलती हैं:",
+    sub: "PrivyPDF का हर टूल आपके ब्राउज़र टैब में चलता है। इससे तीन बातें बदलती हैं:",
     items: [
       {
         t: "निजी",
@@ -287,7 +287,7 @@ const hi: Copy = {
     eyebrow: "कोई मार्केटिंग नहीं",
     title: "ईमानदार तुलना",
     sub: "लोकल-फ़र्स्ट टूलकिट और आम अपलोड-आधारित सेवा में ठीक क्या अंतर है।",
-    you: "SwiftPDF (डिवाइस पर)",
+    you: "PrivyPDF (डिवाइस पर)",
     them: "आम अपलोड वाला टूल",
     rows: [
       { k: "फ़ाइलें डिवाइस से बाहर जाती हैं", a: "कभी नहीं — प्रोसेसिंग लोकल है", b: "हाँ — फ़ाइलें अपलोड होती हैं" },
@@ -340,7 +340,7 @@ const hi: Copy = {
     site: "साइट",
     faq: "FAQ",
     how: "यह कैसे काम करता है",
-    copyright: "© 2026 SwiftPDF. लोकल-फ़र्स्ट, डिज़ाइन से।",
+    copyright: "© 2026 PrivyPDF. लोकल-फ़र्स्ट, डिज़ाइन से।",
     bottom: "100% ब्राउज़र में · कंटेंट ट्रैकिंग नहीं · ऑफ़लाइन चलता है",
     language: "भाषा",
     allTools: "सभी टूल्स",
@@ -432,7 +432,7 @@ const ur: Copy = {
       },
       {
         t: "ٹول منتخب کریں",
-        d: "32 ٹولز میں سے چنیں — یا SwiftPDF جو ٹول آپ کی فائلوں کے لیے تجویز کرے، وہی قبول کریں۔",
+        d: "32 ٹولز میں سے چنیں — یا PrivyPDF جو ٹول آپ کی فائلوں کے لیے تجویز کرے، وہی قبول کریں۔",
       },
       {
         t: "نتیجہ ڈاؤن لوڈ کریں",
@@ -443,7 +443,7 @@ const ur: Copy = {
   why: {
     eyebrow: "ترکیب سے نجی",
     title: "ڈیوائس پر ہی کیوں؟",
-    sub: "SwiftPDF کا ہر ٹول آپ کے براؤزر ٹیب میں چلتا ہے۔ اس سے تین چیزیں بدلتی ہیں:",
+    sub: "PrivyPDF کا ہر ٹول آپ کے براؤزر ٹیب میں چلتا ہے۔ اس سے تین چیزیں بدلتی ہیں:",
     items: [
       {
         t: "پرائیویٹ",
@@ -463,7 +463,7 @@ const ur: Copy = {
     eyebrow: "کوئی مارکیٹنگ نہیں",
     title: "ایماندارانہ موازنہ",
     sub: "لوکل فرسٹ ٹول کِٹ اور عام اپ لوڈ پر مبنی سروس میں بالکل کیا فرق ہے۔",
-    you: "SwiftPDF (ڈیوائس پر)",
+    you: "PrivyPDF (ڈیوائس پر)",
     them: "عام اپ لوڈ والا ٹول",
     rows: [
       { k: "فائلیں ڈیوائس سے باہر جاتی ہیں", a: "کبھی نہیں — پروسیسنگ لوکل ہے", b: "ہاں — فائلیں اپ لوڈ ہوتی ہیں" },
@@ -516,7 +516,7 @@ const ur: Copy = {
     site: "سائٹ",
     faq: "FAQ",
     how: "یہ کیسے کام کرتا ہے",
-    copyright: "© 2026 SwiftPDF۔ لوکل فرسٹ، ڈیزائن سے۔",
+    copyright: "© 2026 PrivyPDF۔ لوکل فرسٹ، ڈیزائن سے۔",
     bottom: "100% براؤزر میں · مواد کی کوئی ٹریکنگ نہیں · آف لائن چلتا ہے",
     language: "زبان",
     allTools: "تمام ٹولز",
@@ -608,7 +608,7 @@ const ar: Copy = {
       },
       {
         t: "اختر أداة",
-        d: "32 أداة بينها اختر — أو اقبل الأداة التي يقترحها SwiftPDF للملفات التي أفلتها.",
+        d: "32 أداة بينها اختر — أو اقبل الأداة التي يقترحها PrivyPDF للملفات التي أفلتها.",
       },
       {
         t: "نزّل النتيجة",
@@ -619,7 +619,7 @@ const ar: Copy = {
   why: {
     eyebrow: "الخصوصية بالتصميم",
     title: "لماذا على الجهاز؟",
-    sub: "كل أداة في SwiftPDF تعمل داخل تبويب متصفحك. هذا يغيّر ثلاثة أمور:",
+    sub: "كل أداة في PrivyPDF تعمل داخل تبويب متصفحك. هذا يغيّر ثلاثة أمور:",
     items: [
       {
         t: "خاصة",
@@ -639,7 +639,7 @@ const ar: Copy = {
     eyebrow: "بلا تسويق",
     title: "المقارنة الصادقة",
     sub: "أين يختلف مجموعة الأدوات المحلية تمامًا عن الخدمة المعتادة القائمة على الرفع.",
-    you: "SwiftPDF (على الجهاز)",
+    you: "PrivyPDF (على الجهاز)",
     them: "أداة معتادة ترفع الملفات",
     rows: [
       { k: "الملفات تغادر جهازك", a: "أبدًا — المعالجة محلية", b: "نعم — تُرفع الملفات" },
@@ -692,7 +692,7 @@ const ar: Copy = {
     site: "الموقع",
     faq: "الأسئلة الشائعة",
     how: "كيف تعمل",
-    copyright: "© 2026 SwiftPDF. المحلية أولًا بالتصميم.",
+    copyright: "© 2026 PrivyPDF. المحلية أولًا بالتصميم.",
     bottom: "100% في المتصفح · لا تتبع للمحتوى · تعمل دون اتصال",
     language: "اللغة",
     allTools: "كل الأدوات",

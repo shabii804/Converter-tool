@@ -137,11 +137,11 @@ export function Header() {
             router.push(localeHref("/"));
           }}
           className="mr-1 flex min-h-11 items-center gap-2.5 rounded-control px-1 outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          aria-label="SwiftPDF home"
+          aria-label="PrivyPDF home"
         >
           <Logo className="size-8" />
           <span className="hidden text-[17px] font-bold tracking-tight sm:inline">
-            Swift<span className="text-gradient">PDF</span>
+            Privy<span className="text-[#DC2626] dark:text-[#F87171]">PDF</span>
           </span>
         </button>
 

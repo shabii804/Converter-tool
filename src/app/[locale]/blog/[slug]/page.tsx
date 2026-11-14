@@ -67,10 +67,10 @@ export default async function ArticlePage({
       datePublished: article.published,
       url,
       image: article.sections.find((s) => s.image)?.image?.src,
-      publisher: { "@type": "Organization", name: "SwiftPDF" },
+      publisher: { "@type": "Organization", name: "PrivyPDF" },
     },
     breadcrumbLd([
-      { name: "SwiftPDF", url: canonicalUrl("en", "/") },
+      { name: "PrivyPDF", url: canonicalUrl("en", "/") },
       { name: "Blog", url: canonicalUrl("en", "/blog") },
       { name: article.title, url },
     ]),
@@ -83,7 +83,7 @@ export default async function ArticlePage({
         <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-10 sm:px-6 sm:py-14">
           <nav aria-label="Breadcrumb" className="mb-6 text-[13px] text-fg-faint">
             <Link href="/en" className="hover:text-foreground">
-              SwiftPDF
+              PrivyPDF
             </Link>
             <span className="mx-1.5">/</span>
             <Link href="/en/blog" className="hover:text-foreground">

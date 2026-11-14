@@ -1,5 +1,5 @@
 /**
- * SwiftPDF Extra Engine — the Tier-1 tool additions (edit, sign, redact,
+ * PrivyPDF Extra Engine — the Tier-1 tool additions (edit, sign, redact,
  * target-size compression, image tools, PDF→PNG, extraction, text→PDF).
  *
  * Same contract as pdf-engine.ts: pure File→Blob, 100% client-side,

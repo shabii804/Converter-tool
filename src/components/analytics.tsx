@@ -40,7 +40,7 @@ export function pwaMetadata(): Metadata {
     appleWebApp: {
       capable: true,
       statusBarStyle: "black-translucent",
-      title: "SwiftPDF",
+      title: "PrivyPDF",
     },
   };
 }
