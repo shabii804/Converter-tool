@@ -192,7 +192,6 @@ const en = {
   },
   footer: {
     tagline: "Fast, private PDF tools that run entirely in your browser.",
-    privacy: "Files never leave your device. No account. No tracking of file contents.",
     tools: "Popular tools",
     cats: "Categories",
     site: "Site",
@@ -371,7 +370,6 @@ const es: Copy = {
   },
   footer: {
     tagline: "Herramientas PDF rápidas y privadas, íntegramente en tu navegador.",
-    privacy: "Los archivos nunca salen de tu dispositivo. Sin cuenta. Sin rastreo del contenido.",
     tools: "Herramientas populares",
     cats: "Categorías",
     site: "Sitio",
@@ -548,7 +546,6 @@ const fr: Copy = {
   },
   footer: {
     tagline: "Des outils PDF rapides et privés, entièrement dans votre navigateur.",
-    privacy: "Les fichiers ne quittent jamais votre appareil. Sans compte. Aucun suivi du contenu.",
     tools: "Outils populaires",
     cats: "Catégories",
     site: "Site",

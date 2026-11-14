@@ -159,7 +159,6 @@ const pt: Copy = {
   },
   footer: {
     tagline: "Ferramentas PDF rápidas e privadas, totalmente no seu navegador.",
-    privacy: "Os arquivos nunca saem do seu dispositivo. Sem conta. Sem rastreamento do conteúdo.",
     tools: "Ferramentas populares",
     cats: "Categorias",
     site: "Site",
@@ -336,7 +335,6 @@ const hi: Copy = {
   },
   footer: {
     tagline: "तेज़, निजी PDF टूल्स — पूरी तरह आपके ब्राउज़र में।",
-    privacy: "फ़ाइलें कभी डिवाइस से बाहर नहीं जातीं। खाता नहीं। कंटेंट का कोई ट्रैकिंग नहीं।",
     tools: "लोकप्रिय टूल्स",
     cats: "श्रेणियाँ",
     site: "साइट",
@@ -513,7 +511,6 @@ const ur: Copy = {
   },
   footer: {
     tagline: "تیز، نجی PDF ٹولز — مکمل طور پر آپ کے براؤزر میں۔",
-    privacy: "فائلیں کبھی ڈیوائس سے باہر نہیں جاتیں۔ اکاؤنٹ نہیں۔ مواد کی کوئی ٹریکنگ نہیں۔",
     tools: "مقبول ٹولز",
     cats: "زمرے",
     site: "سائٹ",
@@ -690,7 +687,6 @@ const ar: Copy = {
   },
   footer: {
     tagline: "أدوات PDF سريعة وخاصة، تعمل بالكامل في متصفحك.",
-    privacy: "الملفات لا تغادر جهازك أبدًا. بلا حساب. لا تتبع للمحتوى.",
     tools: "أدوات شائعة",
     cats: "الفئات",
     site: "الموقع",
