@@ -77,7 +77,7 @@ export function Dropzone({
           "block w-full cursor-pointer rounded-card border-2 border-dashed bg-surface-2/60 text-center outline-none transition-all duration-200",
           "hover:border-border-strong hover:bg-surface-1/70 hover:shadow-sm",
           "focus-visible:ring-2 focus-visible:ring-ring",
-          compact ? "p-4 sm:p-5" : "p-7 sm:p-10",
+          compact ? "p-2.5 sm:p-5" : "p-7 sm:p-10",
           dragging && "border-ring bg-primary/[0.05] shadow-md"
         )}
         style={!dragging ? { borderColor: "var(--border-strong)" } : undefined}
@@ -95,9 +95,9 @@ export function Dropzone({
                 ? { repeat: Infinity, duration: 1.2, ease: "easeInOut" }
                 : { duration: 0.2 }
             }
-            className="flex flex-col items-center gap-3 sm:flex-row sm:gap-4"
+            className="flex flex-col items-center gap-2.5 sm:flex-row sm:gap-4"
           >
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-card bg-gradient-brand shadow-glow">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-card bg-gradient-brand shadow-glow sm:h-11 sm:w-11">
               <UploadCloud className="size-5 text-white" />
             </span>
             <span className="text-center sm:min-w-0 sm:text-left">
