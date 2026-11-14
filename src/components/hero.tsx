@@ -69,24 +69,24 @@ export function Hero() {
   return (
     <section className="relative overflow-hidden">
       <MeshBackdrop />
-      <div className="relative mx-auto max-w-7xl px-4 pb-2 pt-8 sm:px-6 sm:pt-12">
-        <div className="grid items-center gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-14">
+      <div className="relative mx-auto max-w-7xl px-4 pb-2 pt-5 sm:px-6 sm:pt-8">
+        <div className="grid items-center gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:gap-10">
           {/* left — heading, description, compact dropzone */}
           <div>
             <p className="flex items-center gap-1.5 text-xs font-semibold text-fg-muted sm:text-[13px]">
               <Sparkles className="size-3.5 text-primary" aria-hidden="true" />
               {t.hero.eyebrow.replace("{n}", String(TOOLS.length))}
             </p>
-            <h1 className="mt-4 text-display font-bold tracking-heading">
-              {t.hero.h1a}{" "}
-              <span className="text-gradient">{t.hero.h1b}</span>
+            <h1 className="mt-3 text-4xl font-bold leading-[1.12] tracking-heading sm:text-[42px] lg:text-[46px]">
+              <span className="block">{t.hero.h1a}</span>
+              <span className="block text-gradient">{t.hero.h1b}</span>
             </h1>
-            <p className="mt-4 max-w-xl text-body text-fg-muted sm:text-base">
+            <p className="mt-3 max-w-xl text-body text-fg-muted sm:text-base">
               {t.hero.sub}
             </p>
 
             {/* dropzone (Ctrl+V paste handled inside Dropzone) */}
-            <div className="relative mt-6 sm:mt-8">
+            <div className="relative mt-5 sm:mt-6">
               <Dropzone
                 compact
                 accept="application/pdf,image/jpeg,image/png,.docx"
@@ -105,7 +105,7 @@ export function Hero() {
                   </>
                 }
                 hint={
-                  <span className="inline-flex flex-wrap items-center justify-center gap-1.5">
+                  <span className="inline-flex flex-wrap items-center justify-center gap-1.5 sm:justify-end">
                     <span className="sr-only">{t.hero.formatsLabel}</span>
                     {["PDF", "JPG", "PNG", "DOCX"].map((f) => (
                       <span
@@ -119,14 +119,14 @@ export function Hero() {
                 }
               />
               {/* honest size note — there is no artificial upload cap */}
-              <p className="mt-2.5 flex items-center justify-center gap-1.5 text-micro text-fg-faint">
+              <p className="mt-2 flex items-center justify-center gap-1.5 text-micro text-fg-faint">
                 <InfinityIcon className="size-3.5" aria-hidden="true" />
                 {t.hero.noLimit}
               </p>
             </div>
 
-            {/* trust chips — balanced 2×2 grid on phones, single row on ≥sm */}
-            <div className="mt-5 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+            {/* trust chips — light inline row, wraps on phones */}
+            <div className="mt-3.5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 sm:justify-start">
               {[
                 { icon: ShieldCheck, label: t.hero.chips.private, cls: "text-success" },
                 { icon: WifiOff, label: t.hero.chips.offline, cls: "text-primary" },
@@ -135,7 +135,7 @@ export function Hero() {
               ].map((c) => (
                 <span
                   key={c.label}
-                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-chip border border-border bg-surface-2/70 px-3 py-2 text-[13px] font-medium text-fg-muted shadow-xs backdrop-blur sm:w-auto sm:py-1.5"
+                  className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-fg-muted"
                 >
                   <c.icon className={`size-3.5 ${c.cls}`} aria-hidden="true" />
                   {c.label}
@@ -146,7 +146,7 @@ export function Hero() {
 
           {/* right — brand artwork with floating proof chips */}
           <div className="relative mx-auto w-full max-w-xl lg:max-w-none">
-            <div className="relative aspect-[5/4] overflow-hidden rounded-card border border-border bg-surface-2 shadow-lg">
+            <div className="relative aspect-[7/4] overflow-hidden rounded-card border border-border bg-surface-2 shadow-lg">
               <Image
                 src="/hero-art.png"
                 alt=""
@@ -265,8 +265,8 @@ export function Hero() {
         )}
 
         {/* quick tools — one horizontal toolbar, snap-scrolls on phones */}
-        <div className="mt-8 sm:mt-10">
-          <p className="mb-2.5 text-center text-[11px] font-bold uppercase tracking-[0.14em] text-fg-faint">
+        <div className="mt-6 sm:mt-8">
+          <p className="mb-2 text-center text-[11px] font-bold uppercase tracking-[0.14em] text-fg-faint">
             {t.hero.popularTools}
           </p>
           <div className="flex snap-x gap-2 overflow-x-auto pb-1 [scrollbar-width:thin] sm:flex-wrap sm:justify-center sm:gap-2.5">
@@ -277,7 +277,7 @@ export function Hero() {
                 <button
                   key={q.id}
                   onClick={() => nav(q.id)}
-                  className="group flex min-h-[72px] w-[76px] shrink-0 snap-start flex-col items-center justify-center gap-1.5 rounded-card border border-border bg-surface-2/80 p-2.5 text-center shadow-xs outline-none backdrop-blur transition-[border-color,box-shadow,translate] duration-200 hover:-translate-y-0.5 hover:border-border-strong hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring sm:w-[84px]"
+                  className="group flex min-h-[64px] w-[72px] shrink-0 snap-start flex-col items-center justify-center gap-1 rounded-card border border-border bg-surface-2/80 p-2 text-center shadow-xs outline-none backdrop-blur transition-[border-color,box-shadow,translate] duration-200 hover:-translate-y-0.5 hover:border-border-strong hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring sm:w-[80px]"
                 >
                   <IconTile
                     icon={tool.icon}
@@ -293,7 +293,7 @@ export function Hero() {
             })}
             <button
               onClick={scrollToTools}
-              className="group flex min-h-[72px] w-[76px] shrink-0 snap-start flex-col items-center justify-center gap-1.5 rounded-card border border-dashed border-border bg-surface-2/40 p-2.5 text-center outline-none transition-[border-color,box-shadow,translate] duration-200 hover:-translate-y-0.5 hover:border-border-strong hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring sm:w-[84px]"
+              className="group flex min-h-[64px] w-[72px] shrink-0 snap-start flex-col items-center justify-center gap-1 rounded-card border border-dashed border-border bg-surface-2/40 p-2 text-center outline-none transition-[border-color,box-shadow,translate] duration-200 hover:-translate-y-0.5 hover:border-border-strong hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring sm:w-[80px]"
             >
               <span className="flex size-7 items-center justify-center rounded-[10px] border border-border bg-surface-3 transition-transform duration-200 group-hover:scale-110">
                 <ArrowDown className="size-3.5 text-fg-muted" aria-hidden="true" />
