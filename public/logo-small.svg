@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <defs>
+    <linearGradient id="ppdfShield" x1="15.3" y1="13" x2="26.3" y2="26.8" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2F5FB3"/>
+      <stop offset="1" stop-color="#16346F"/>
+    </linearGradient>
+    <clipPath id="ppdfClip"><rect width="32" height="32" rx="9"/></clipPath>
+  </defs>
+
+  <!-- simplified mark for tiny sizes (favicon): doc + shield core, no orbit ring -->
+  <rect width="32" height="32" rx="9" fill="#F3F7FF"/>
+  <g clip-path="url(#ppdfClip)">
+    <rect x="0.5" y="0.5" width="31" height="31" rx="8.5" stroke="#D8E2F6"/>
+    <g transform="translate(16 16) scale(1.22) translate(-16 -16)">
+      <path d="M9.7 5.6 h6.6 l4.9 4.9 v12.2 a1.9 1.9 0 0 1 -1.9 1.9 H9.7 a1.9 1.9 0 0 1 -1.9 -1.9 V7.5 a1.9 1.9 0 0 1 1.9 -1.9 Z" fill="#FFFFFF" stroke="#2E6BE6" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M16.3 5.6 v3.0 a1.9 1.9 0 0 0 1.9 1.9 h3.0 Z" fill="#1C3F94"/>
+      <path d="M20.8 13.0 l5.5 2 v5.75 c0 3.5 -2.3 5.7 -5.5 6.75 c-3.2 -1.05 -5.5 -3.25 -5.5 -6.75 V15 Z" fill="url(#ppdfShield)" stroke="#D9E1EF" stroke-width="2" stroke-linejoin="round"/>
+      <rect x="17.9" y="17.7" width="5.8" height="5.0" rx="1.2" fill="#FFFFFF"/>
+      <path d="M19.1 17.7 v-1.5 a1.7 1.7 0 0 1 3.4 0 v1.5" stroke="#FFFFFF" stroke-width="1.7" fill="none"/>
+      <circle cx="20.8" cy="19.9" r="0.95" fill="#1C3F94"/>
+      <rect x="20.35" y="20.3" width="0.9" height="1.5" rx="0.45" fill="#1C3F94"/>
+    </g>
+  </g>
+</svg>

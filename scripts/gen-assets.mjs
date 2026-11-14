@@ -38,9 +38,12 @@ async function makeIcon(size, file, { maskable = false } = {}) {
   console.log("icon:", file);
 }
 
-/** /favicon.ico — real ICO container (PNG-compressed entry, Vista+ spec) from the logo */
+/** /favicon.ico — real ICO container (PNG-compressed entry, Vista+ spec) from the logo
+ * Uses the simplified small-size mark (logo-small.svg): favicon renders at 16–32px,
+ * where the full artwork's fine detail (text lines, thin strokes) turns to noise. */
+const LOGO_SMALL = path.join(process.cwd(), "public/logo-small.svg");
 async function makeFavicon() {
-  const src = await readFile(LOGO, "utf8");
+  const src = await readFile(LOGO_SMALL, "utf8");
   const png = await sharp(Buffer.from(src), { density: 72 }).resize(32, 32).png().toBuffer();
   const header = Buffer.alloc(6); // ICONDIR: reserved, type=icon, count=1
   header.writeUInt16LE(0, 0); header.writeUInt16LE(1, 2); header.writeUInt16LE(1, 4);
